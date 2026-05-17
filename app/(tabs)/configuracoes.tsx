@@ -10,7 +10,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
+import { useRouter } from 'expo-router';
 import { useTheme } from '../../theme';
+import { sairDaConta } from '../../services/authService';
 
 // ── tipos locais ─────────────────────────────────────────────────────────────
 
@@ -157,6 +159,34 @@ function Cartao({ children }: { children: React.ReactNode }) {
 
 export default function ConfiguracoesScreen() {
   const { colors, mode, setMode } = useTheme();
+  const router = useRouter();
+
+  async function executarSaida() {
+    try {
+      await sairDaConta();
+      router.replace('/login');
+    } catch {
+      if (Platform.OS === 'web') {
+        window.alert('Não foi possível sair da conta. Tente novamente.');
+      } else {
+        Alert.alert('Erro', 'Não foi possível sair da conta. Tente novamente.');
+      }
+    }
+  }
+
+  function handleSair() {
+    // Alert.alert com botões não funciona no web — usa window.confirm
+    if (Platform.OS === 'web') {
+      if (window.confirm('Deseja mesmo sair da conta?')) {
+        executarSaida();
+      }
+      return;
+    }
+    Alert.alert('Sair da conta', 'Deseja mesmo sair?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Sair', style: 'destructive', onPress: executarSaida },
+    ]);
+  }
 
   // Notificações
   const [alertasValidade, setAlertasValidade] = useState(true);
@@ -345,12 +375,7 @@ export default function ConfiguracoesScreen() {
           <ItemNavegacao
             label="Sair da conta"
             danger
-            onPress={() =>
-              Alert.alert('Sair da conta', 'Deseja mesmo sair?', [
-                { text: 'Cancelar', style: 'cancel' },
-                { text: 'Sair', style: 'destructive', onPress: () => {} },
-              ])
-            }
+            onPress={handleSair}
           />
         </Cartao>
 
