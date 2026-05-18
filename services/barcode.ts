@@ -83,7 +83,10 @@ async function consultarCosmos(ean: string): Promise<StatusBusca> {
   let resp: Response;
   try {
     resp = await fetch(`https://api.cosmos.bluesoft.com.br/gtins/${ean}`, {
-      headers: { 'X-Cosmos-Token': COSMOS_TOKEN },
+      headers: {
+        'X-Cosmos-Token': COSMOS_TOKEN,
+        'User-Agent': 'Cosmos-API-Request',
+      },
     });
   } catch (err) {
     return eSemInternet(err) ? { status: 'sem_internet' } : { status: 'nao_encontrado' };

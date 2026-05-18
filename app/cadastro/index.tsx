@@ -8,12 +8,15 @@ import {
   Platform,
   KeyboardAvoidingView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTheme } from '../../theme';
-import { Categoria } from '../../data/produtos';
+import { Categoria } from '../../services/tipos';
+import { buscarPorEan } from '../../services/barcode';
+import { BarcodeScanner } from '../../components/BarcodeScanner';
 
 // ── constantes ───────────────────────────────────────────────────────────────
 
@@ -35,13 +38,47 @@ export default function CadastroScreen() {
   const [nome, setNome] = useState('');
   const [categoria, setCategoria] = useState<Categoria | null>(null);
   const [unidade, setUnidade] = useState<string | null>(null);
+  const [ean, setEan] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState(false);
+
+  const [scannerAberto, setScannerAberto] = useState(false);
+  const [buscando, setBuscando] = useState(false);
 
   const podeEnviar = nome.trim().length >= 2 && categoria !== null && unidade !== null;
 
+  // ── lógica do scanner ────────────────────────────────────────────────────
+
+  async function aoEscanear(codigoEan: string) {
+    setScannerAberto(false);
+    setBuscando(true);
+    setEan(codigoEan);
+
+    const resultado = await buscarPorEan(codigoEan);
+    setBuscando(false);
+
+    if (resultado.status === 'encontrado') {
+      setNome(resultado.dados.nome);
+      setCategoria(resultado.dados.categoria);
+      return;
+    }
+
+    const mensagens: Record<typeof resultado.status, string> = {
+      nao_encontrado:
+        'Produto não encontrado nas bases de dados.\nPreencha o nome e a categoria manualmente.',
+      limite_excedido:
+        'O serviço de consulta atingiu o limite de hoje.\nPreencha o nome e a categoria manualmente.',
+      sem_internet:
+        'Sem conexão com a internet.\nPreencha o nome e a categoria manualmente.',
+    };
+
+    Alert.alert('Produto não identificado', mensagens[resultado.status], [
+      { text: 'Ok' },
+    ]);
+  }
+
   function handleSalvar() {
     if (!podeEnviar) return;
-    // Mock: sem persistência real nesta fase
+    // TODO: persistir no Firestore (próxima etapa)
     setSucesso(true);
   }
 
@@ -49,42 +86,43 @@ export default function CadastroScreen() {
   if (sucesso) {
     const cat = CATEGORIAS.find((c) => c.valor === categoria);
     return (
-      <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
-        <View style={styles.sucessoWrap}>
-          <View style={[styles.sucessoCirculo, { backgroundColor: colors.primaryLight }]}>
-            <Text style={styles.sucessoEmoji}>{cat?.emoji ?? '📦'}</Text>
+      <SafeAreaView style={[s.safe, { backgroundColor: colors.background }]}>
+        <View style={s.sucessoWrap}>
+          <View style={[s.sucessoCirculo, { backgroundColor: colors.primaryLight }]}>
+            <Text style={s.sucessoEmoji}>{cat?.emoji ?? '📦'}</Text>
           </View>
-          <Text style={[styles.sucessoTitulo, { color: colors.textPrimary }]}>
+          <Text style={[s.sucessoTitulo, { color: colors.textPrimary }]}>
             Produto cadastrado!
           </Text>
-          <Text style={[styles.sucessoSub, { color: colors.textSecondary }]}>
+          <Text style={[s.sucessoSub, { color: colors.textSecondary }]}>
             "{nome}" foi adicionado ao estoque.{'\n'}Agora você pode registrar entradas dele.
           </Text>
 
           <TouchableOpacity
-            style={[styles.botaoPrimario, { backgroundColor: colors.primary }]}
+            style={[s.botaoPrimario, { backgroundColor: colors.primary }]}
             onPress={() => router.replace('/entrada')}
             activeOpacity={0.85}
           >
-            <Text style={styles.botaoPrimarioTexto}>📥  Registrar entrada agora</Text>
+            <Text style={s.botaoPrimarioTexto}>📥  Registrar entrada agora</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.botaoSecundario, { borderColor: colors.border }]}
+            style={[s.botaoSecundario, { borderColor: colors.border }]}
             onPress={() => {
               setNome('');
               setCategoria(null);
               setUnidade(null);
+              setEan(null);
               setSucesso(false);
             }}
           >
-            <Text style={[styles.botaoSecundarioTexto, { color: colors.textSecondary }]}>
+            <Text style={[s.botaoSecundarioTexto, { color: colors.textSecondary }]}>
               Cadastrar outro produto
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => router.replace('/')}>
-            <Text style={[styles.linkTexto, { color: colors.primary }]}>
+            <Text style={[s.linkTexto, { color: colors.primary }]}>
               Voltar para o início
             </Text>
           </TouchableOpacity>
@@ -95,54 +133,53 @@ export default function CadastroScreen() {
 
   // ── formulário ───────────────────────────────────────────────────────────
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['bottom']}>
+    <SafeAreaView style={[s.safe, { backgroundColor: colors.background }]} edges={['bottom']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={s.scroll}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           {/* Botão escanear */}
           <TouchableOpacity
-            style={[styles.escanearCard, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
-            onPress={() =>
-              Alert.alert(
-                'Scanner',
-                'O scanner de código de barras estará disponível na próxima fase do app.',
-                [{ text: 'Entendi' }]
-              )
-            }
+            style={[s.escanearCard, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
+            onPress={() => setScannerAberto(true)}
             activeOpacity={0.8}
+            disabled={buscando}
           >
-            <Text style={styles.escanearEmoji}>📷</Text>
+            <Text style={s.escanearEmoji}>📷</Text>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.escanearTitulo, { color: colors.primaryDark }]}>
+              <Text style={[s.escanearTitulo, { color: colors.primaryDark }]}>
                 Escanear código de barras
               </Text>
-              <Text style={[styles.escanearSub, { color: colors.primary }]}>
+              <Text style={[s.escanearSub, { color: colors.primary }]}>
                 Preenche os dados automaticamente
               </Text>
             </View>
-            <Text style={[styles.escanearSeta, { color: colors.primary }]}>›</Text>
+            {buscando ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : (
+              <Text style={[s.escanearSeta, { color: colors.primary }]}>›</Text>
+            )}
           </TouchableOpacity>
 
-          <View style={[styles.separador, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
-            <View style={[styles.sepLinha, { backgroundColor: colors.border }]} />
-            <Text style={[styles.sepTexto, { color: colors.textDisabled }]}>ou preencha</Text>
-            <View style={[styles.sepLinha, { backgroundColor: colors.border }]} />
+          <View style={[s.separador, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
+            <View style={[s.sepLinha, { backgroundColor: colors.border }]} />
+            <Text style={[s.sepTexto, { color: colors.textDisabled }]}>ou preencha</Text>
+            <View style={[s.sepLinha, { backgroundColor: colors.border }]} />
           </View>
 
           {/* Nome */}
-          <View style={styles.campoWrap}>
-            <Text style={[styles.campoLabel, { color: colors.textSecondary }]}>
+          <View style={s.campoWrap}>
+            <Text style={[s.campoLabel, { color: colors.textSecondary }]}>
               Nome do produto *
             </Text>
             <View
               style={[
-                styles.inputWrap,
+                s.inputWrap,
                 {
                   backgroundColor: colors.surface,
                   borderColor: nome.trim().length >= 2 ? colors.riscoSeguro : colors.border,
@@ -150,7 +187,7 @@ export default function CadastroScreen() {
               ]}
             >
               <TextInput
-                style={[styles.inputTexto, { color: colors.textPrimary }]}
+                style={[s.inputTexto, { color: colors.textPrimary }]}
                 placeholder="Ex: Arroz, Sabonete, Fralda…"
                 placeholderTextColor={colors.textDisabled}
                 value={nome}
@@ -163,18 +200,18 @@ export default function CadastroScreen() {
           </View>
 
           {/* Categoria */}
-          <View style={styles.campoWrap}>
-            <Text style={[styles.campoLabel, { color: colors.textSecondary }]}>
+          <View style={s.campoWrap}>
+            <Text style={[s.campoLabel, { color: colors.textSecondary }]}>
               Categoria *
             </Text>
-            <View style={styles.categoriaGrid}>
+            <View style={s.categoriaGrid}>
               {CATEGORIAS.map((cat) => {
                 const ativo = categoria === cat.valor;
                 return (
                   <TouchableOpacity
                     key={cat.valor}
                     style={[
-                      styles.categoriaItem,
+                      s.categoriaItem,
                       {
                         backgroundColor: ativo ? colors.primary : colors.surface,
                         borderColor: ativo ? colors.primary : colors.border,
@@ -183,10 +220,10 @@ export default function CadastroScreen() {
                     onPress={() => setCategoria(cat.valor)}
                     activeOpacity={0.75}
                   >
-                    <Text style={styles.categoriaEmoji}>{cat.emoji}</Text>
+                    <Text style={s.categoriaEmoji}>{cat.emoji}</Text>
                     <Text
                       style={[
-                        styles.categoriaLabel,
+                        s.categoriaLabel,
                         { color: ativo ? '#FFFFFF' : colors.textSecondary },
                       ]}
                     >
@@ -199,18 +236,18 @@ export default function CadastroScreen() {
           </View>
 
           {/* Unidade */}
-          <View style={styles.campoWrap}>
-            <Text style={[styles.campoLabel, { color: colors.textSecondary }]}>
+          <View style={s.campoWrap}>
+            <Text style={[s.campoLabel, { color: colors.textSecondary }]}>
               Unidade de medida *
             </Text>
-            <View style={styles.unidadesWrap}>
+            <View style={s.unidadesWrap}>
               {UNIDADES.map((u) => {
                 const ativo = unidade === u;
                 return (
                   <TouchableOpacity
                     key={u}
                     style={[
-                      styles.unidadeChip,
+                      s.unidadeChip,
                       {
                         backgroundColor: ativo ? colors.accent : colors.surface,
                         borderColor: ativo ? colors.accent : colors.border,
@@ -221,7 +258,7 @@ export default function CadastroScreen() {
                   >
                     <Text
                       style={[
-                        styles.unidadeLabel,
+                        s.unidadeLabel,
                         { color: ativo ? '#FFFFFF' : colors.textSecondary },
                       ]}
                     >
@@ -232,30 +269,32 @@ export default function CadastroScreen() {
               })}
             </View>
             {unidade && (
-              <Text style={[styles.unidadeDica, { color: colors.textSecondary }]}>
-                As quantidades serão registradas em <Text style={{ fontWeight: '700', color: colors.textPrimary }}>{unidade}</Text>.
+              <Text style={[s.unidadeDica, { color: colors.textSecondary }]}>
+                As quantidades serão registradas em{' '}
+                <Text style={{ fontWeight: '700', color: colors.textPrimary }}>{unidade}</Text>.
               </Text>
             )}
           </View>
 
           {/* Preview do produto */}
           {nome.trim().length >= 2 && categoria && unidade && (
-            <View style={[styles.previewCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.previewLabel, { color: colors.textSecondary }]}>
+            <View style={[s.previewCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Text style={[s.previewLabel, { color: colors.textSecondary }]}>
                 PRÉVIA DO PRODUTO
               </Text>
-              <View style={styles.previewConteudo}>
-                <View style={[styles.previewEmojiBg, { backgroundColor: colors.surfaceSecondary }]}>
-                  <Text style={styles.previewEmoji}>
+              <View style={s.previewConteudo}>
+                <View style={[s.previewEmojiBg, { backgroundColor: colors.surfaceSecondary }]}>
+                  <Text style={s.previewEmoji}>
                     {CATEGORIAS.find((c) => c.valor === categoria)?.emoji ?? '📦'}
                   </Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.previewNome, { color: colors.textPrimary }]}>
+                  <Text style={[s.previewNome, { color: colors.textPrimary }]}>
                     {nome.trim()}
                   </Text>
-                  <Text style={[styles.previewSub, { color: colors.textSecondary }]}>
+                  <Text style={[s.previewSub, { color: colors.textSecondary }]}>
                     {CATEGORIAS.find((c) => c.valor === categoria)?.label} · {unidade}
+                    {ean ? ` · EAN ${ean}` : ''}
                   </Text>
                 </View>
               </View>
@@ -265,16 +304,16 @@ export default function CadastroScreen() {
           {/* Botão salvar */}
           <TouchableOpacity
             style={[
-              styles.salvarBtn,
+              s.salvarBtn,
               { backgroundColor: podeEnviar ? colors.primary : colors.surfaceSecondary },
             ]}
             onPress={handleSalvar}
-            disabled={!podeEnviar}
+            disabled={!podeEnviar || buscando}
             activeOpacity={0.85}
           >
             <Text
               style={[
-                styles.salvarTexto,
+                s.salvarTexto,
                 { color: podeEnviar ? '#FFFFFF' : colors.textDisabled },
               ]}
             >
@@ -285,14 +324,20 @@ export default function CadastroScreen() {
           <View style={{ height: 24 }} />
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Modal do scanner */}
+      <BarcodeScanner
+        visivel={scannerAberto}
+        onScan={aoEscanear}
+        onFechar={() => setScannerAberto(false)}
+      />
     </SafeAreaView>
   );
 }
 
-
 // ── estilos ──────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   safe: { flex: 1 },
   scroll: { paddingHorizontal: 20, paddingTop: 20 },
 
