@@ -13,10 +13,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../../theme';
 import { Categoria } from '../../services/tipos';
 import { buscarPorEan } from '../../services/barcode';
+import { criarProduto } from '../../services/produtosService';
 import { BarcodeScanner } from '../../components/BarcodeScanner';
 
 // ── constantes ───────────────────────────────────────────────────────────────
@@ -35,6 +37,7 @@ const UNIDADES = ['un', 'kg', 'g', 'L', 'mL', 'pct', 'cx', 'par', 'rolo'];
 
 export default function CadastroScreen() {
   const { colors } = useTheme();
+  const { ean: eanParam } = useLocalSearchParams<{ ean?: string }>();
 
   const [nome, setNome] = useState('');
   const [categoria, setCategoria] = useState<Categoria | null>(null);
@@ -47,8 +50,27 @@ export default function CadastroScreen() {
 
   const [scannerAberto, setScannerAberto] = useState(false);
   const [buscando, setBuscando] = useState(false);
+  const [salvando, setSalvando] = useState(false);
 
   const podeEnviar = nome.trim().length >= 2 && categoria !== null && unidade !== null;
+
+  // Auto-preenche quando a tela abre com ?ean= (vindo da tela de entrada)
+  useEffect(() => {
+    if (!eanParam) return;
+    const codigo = String(eanParam);
+    setEan(codigo);
+    setBuscando(true);
+    buscarPorEan(codigo).then((resultado) => {
+      setBuscando(false);
+      if (resultado.status !== 'encontrado') return;
+      setNome(resultado.dados.nome);
+      setCategoria(resultado.dados.categoria);
+      setFotoUrl(resultado.dados.fotoUrl);
+      setFotoComErro(false);
+      setFonteDados(resultado.dados.fonte);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── lógica do scanner ────────────────────────────────────────────────────
 
@@ -83,10 +105,25 @@ export default function CadastroScreen() {
     ]);
   }
 
-  function handleSalvar() {
-    if (!podeEnviar) return;
-    // TODO: persistir no Firestore (próxima etapa)
-    setSucesso(true);
+  async function handleSalvar() {
+    if (!podeEnviar || salvando) return;
+    setSalvando(true);
+    try {
+      const cat = CATEGORIAS.find((c) => c.valor === categoria)!;
+      await criarProduto({
+        nome: nome.trim(),
+        categoria: categoria!,
+        unidade: unidade!,
+        emoji: cat.emoji,
+        ean: ean ?? undefined,
+        fotoUrl: fotoUrl ?? undefined,
+      });
+      setSucesso(true);
+    } catch {
+      Alert.alert('Erro', 'Não foi possível salvar o produto. Tente novamente.');
+    } finally {
+      setSalvando(false);
+    }
   }
 
   // ── tela de sucesso ──────────────────────────────────────────────────────
@@ -362,20 +399,24 @@ export default function CadastroScreen() {
           <TouchableOpacity
             style={[
               s.salvarBtn,
-              { backgroundColor: podeEnviar ? colors.primary : colors.surfaceSecondary },
+              { backgroundColor: podeEnviar && !salvando ? colors.primary : colors.surfaceSecondary },
             ]}
             onPress={handleSalvar}
-            disabled={!podeEnviar || buscando}
+            disabled={!podeEnviar || buscando || salvando}
             activeOpacity={0.85}
           >
-            <Text
-              style={[
-                s.salvarTexto,
-                { color: podeEnviar ? '#FFFFFF' : colors.textDisabled },
-              ]}
-            >
-              Salvar produto
-            </Text>
+            {salvando ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text
+                style={[
+                  s.salvarTexto,
+                  { color: podeEnviar ? '#FFFFFF' : colors.textDisabled },
+                ]}
+              >
+                Salvar produto
+              </Text>
+            )}
           </TouchableOpacity>
 
           <View style={{ height: 24 }} />

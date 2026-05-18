@@ -79,3 +79,11 @@ export async function criarProduto(
   });
   return ref.id;
 }
+
+/** Retorna o produto cujo campo ean bate exatamente — null se não existir. */
+export async function getProdutoPorEan(ean: string): Promise<Produto | null> {
+  const q = query(collection(db, COL), where('ean', '==', ean), limit(1));
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  return docToProduto(snap.docs[0]);
+}

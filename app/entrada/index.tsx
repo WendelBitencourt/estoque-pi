@@ -8,13 +8,18 @@ import {
   Platform,
   Alert,
   KeyboardAvoidingView,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme } from '../../theme';
 import { StepIndicator } from '../../components/StepIndicator';
-import { PRODUTOS, Produto } from '../../data/produtos';
+import { BarcodeScanner } from '../../components/BarcodeScanner';
+import { Produto } from '../../services/tipos';
+import { subscribeToProdutos, getProdutoPorEan } from '../../services/produtosService';
+import { criarLote } from '../../services/lotesService';
+import { criarMovimentacao } from '../../services/movimentacoesService';
 
 const STEP_LABELS = ['Produto', 'Quantidade', 'Confirmar'];
 
@@ -39,21 +44,43 @@ function validarData(data: string): boolean {
 
 function Passo1({
   selecionado,
+  produtos,
   onSelecionar,
   onAvancar,
 }: {
   selecionado: Produto | null;
-  onSelecionar: (p: Produto) => void;
+  produtos: Produto[];
+  onSelecionar: (p: Produto | null) => void;
   onAvancar: () => void;
 }) {
   const { colors } = useTheme();
   const [busca, setBusca] = useState('');
+  const [scannerAberto, setScannerAberto] = useState(false);
+  const [buscandoPorEan, setBuscandoPorEan] = useState(false);
 
   const sugestoes = busca.trim().length > 0
-    ? PRODUTOS.filter((p) =>
-        p.nome.toLowerCase().includes(busca.toLowerCase())
-      ).slice(0, 6)
+    ? produtos
+        .filter((p) => p.nome.toLowerCase().includes(busca.toLowerCase()))
+        .slice(0, 6)
     : [];
+
+  async function aoScanear(ean: string) {
+    setScannerAberto(false);
+    setBuscandoPorEan(true);
+    try {
+      const prod = await getProdutoPorEan(ean);
+      if (prod) {
+        onSelecionar(prod);
+      } else {
+        // Produto não cadastrado — vai para cadastro com o EAN pré-preenchido
+        router.push(`/cadastro?ean=${ean}`);
+      }
+    } catch {
+      Alert.alert('Erro', 'Não foi possível verificar o produto. Tente novamente.');
+    } finally {
+      setBuscandoPorEan(false);
+    }
+  }
 
   return (
     <View style={styles.passoWrap}>
@@ -75,6 +102,11 @@ function Passo1({
           onChangeText={setBusca}
           autoFocus
         />
+        {busca.length > 0 && (
+          <TouchableOpacity onPress={() => setBusca('')}>
+            <Text style={{ fontSize: 16, color: colors.textDisabled }}>✕</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Sugestões de autocomplete */}
@@ -117,7 +149,7 @@ function Passo1({
               Produto selecionado ✓
             </Text>
           </View>
-          <TouchableOpacity onPress={() => onSelecionar(null as any)}>
+          <TouchableOpacity onPress={() => onSelecionar(null)}>
             <Text style={[styles.trocar, { color: colors.primary }]}>Trocar</Text>
           </TouchableOpacity>
         </View>
@@ -125,13 +157,22 @@ function Passo1({
 
       {/* Botão escanear */}
       <TouchableOpacity
-        style={[styles.escanearBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
-        onPress={() => Alert.alert('Câmera', 'O scanner de código de barras estará disponível na próxima fase.')}
+        style={[
+          styles.escanearBtn,
+          { borderColor: colors.border, backgroundColor: colors.surface },
+          buscandoPorEan && { opacity: 0.6 },
+        ]}
+        onPress={() => setScannerAberto(true)}
+        disabled={buscandoPorEan}
         activeOpacity={0.75}
       >
-        <Text style={styles.escanearEmoji}>📷</Text>
+        {buscandoPorEan ? (
+          <ActivityIndicator color={colors.primary} />
+        ) : (
+          <Text style={styles.escanearEmoji}>📷</Text>
+        )}
         <Text style={[styles.escanearTexto, { color: colors.textSecondary }]}>
-          Escanear código de barras
+          {buscandoPorEan ? 'Verificando produto…' : 'Escanear código de barras'}
         </Text>
       </TouchableOpacity>
 
@@ -160,6 +201,12 @@ function Passo1({
           Continuar →
         </Text>
       </TouchableOpacity>
+
+      <BarcodeScanner
+        visivel={scannerAberto}
+        onScan={aoScanear}
+        onFechar={() => setScannerAberto(false)}
+      />
     </View>
   );
 }
@@ -216,10 +263,7 @@ function Passo2({
           <View style={styles.qtdRow}>
             <TouchableOpacity
               style={[styles.qtdBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
-              onPress={() => {
-                const v = Math.max(1, Number(quantidade) - 1);
-                onQuantidade(String(v));
-              }}
+              onPress={() => onQuantidade(String(Math.max(1, Number(quantidade) - 1)))}
             >
               <Text style={[styles.qtdBtnTexto, { color: colors.textPrimary }]}>−</Text>
             </TouchableOpacity>
@@ -304,12 +348,14 @@ function Passo3({
   produto,
   quantidade,
   validade,
+  salvando,
   onConfirmar,
   onVoltar,
 }: {
   produto: Produto;
   quantidade: string;
   validade: string;
+  salvando: boolean;
   onConfirmar: () => void;
   onVoltar: () => void;
 }) {
@@ -365,15 +411,21 @@ function Passo3({
         <TouchableOpacity
           style={[styles.voltarBtn, { borderColor: colors.border }]}
           onPress={onVoltar}
+          disabled={salvando}
         >
           <Text style={[styles.voltarTexto, { color: colors.textSecondary }]}>← Voltar</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.confirmarBtn, { backgroundColor: colors.primary }]}
+          style={[styles.confirmarBtn, { backgroundColor: salvando ? colors.surfaceSecondary : colors.primary }]}
           onPress={onConfirmar}
+          disabled={salvando}
           activeOpacity={0.85}
         >
-          <Text style={styles.confirmarBtnTexto}>✓  Confirmar entrada</Text>
+          {salvando ? (
+            <ActivityIndicator color={colors.primary} />
+          ) : (
+            <Text style={styles.confirmarBtnTexto}>✓  Confirmar entrada</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -424,17 +476,48 @@ export default function EntradaScreen() {
   const { colors } = useTheme();
   const [passo, setPasso] = useState(0);
   const [sucesso, setSucesso] = useState(false);
+  const [salvando, setSalvando] = useState(false);
 
+  const [produtos, setProdutos] = useState<Produto[]>([]);
   const [produto, setProduto] = useState<Produto | null>(null);
   const [quantidade, setQuantidade] = useState('1');
   const [validade, setValidade] = useState('');
 
+  useEffect(() => {
+    const unsub = subscribeToProdutos(setProdutos);
+    return unsub;
+  }, []);
+
   function resetar() {
     setPasso(0);
     setSucesso(false);
+    setSalvando(false);
     setProduto(null);
     setQuantidade('1');
     setValidade('');
+  }
+
+  async function handleConfirmar() {
+    if (!produto || salvando) return;
+    setSalvando(true);
+    try {
+      const loteId = await criarLote({
+        produtoId: produto.id,
+        nomeProduto: produto.nome,
+        quantidade: Number(quantidade),
+        validade,
+      });
+      await criarMovimentacao({
+        tipo: 'entrada',
+        produtoId: produto.id,
+        loteId,
+        quantidade: Number(quantidade),
+      });
+      setSucesso(true);
+    } catch {
+      Alert.alert('Erro', 'Não foi possível registrar a entrada. Tente novamente.');
+      setSalvando(false);
+    }
   }
 
   if (sucesso && produto) {
@@ -464,6 +547,7 @@ export default function EntradaScreen() {
         {passo === 0 && (
           <Passo1
             selecionado={produto}
+            produtos={produtos}
             onSelecionar={setProduto}
             onAvancar={() => produto && setPasso(1)}
           />
@@ -484,7 +568,8 @@ export default function EntradaScreen() {
             produto={produto}
             quantidade={quantidade}
             validade={validade}
-            onConfirmar={() => setSucesso(true)}
+            salvando={salvando}
+            onConfirmar={handleConfirmar}
             onVoltar={() => setPasso(1)}
           />
         )}
