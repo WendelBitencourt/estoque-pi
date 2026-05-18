@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -39,6 +40,9 @@ export default function CadastroScreen() {
   const [categoria, setCategoria] = useState<Categoria | null>(null);
   const [unidade, setUnidade] = useState<string | null>(null);
   const [ean, setEan] = useState<string | null>(null);
+  const [fotoUrl, setFotoUrl] = useState<string | null>(null);
+  const [fotoComErro, setFotoComErro] = useState(false);
+  const [fonteDados, setFonteDados] = useState<'cosmos' | 'openfoodfacts' | 'cache' | null>(null);
   const [sucesso, setSucesso] = useState(false);
 
   const [scannerAberto, setScannerAberto] = useState(false);
@@ -59,6 +63,9 @@ export default function CadastroScreen() {
     if (resultado.status === 'encontrado') {
       setNome(resultado.dados.nome);
       setCategoria(resultado.dados.categoria);
+      setFotoUrl(resultado.dados.fotoUrl);
+      setFotoComErro(false);
+      setFonteDados(resultado.dados.fonte);
       return;
     }
 
@@ -113,6 +120,9 @@ export default function CadastroScreen() {
               setCategoria(null);
               setUnidade(null);
               setEan(null);
+              setFotoUrl(null);
+              setFotoComErro(false);
+              setFonteDados(null);
               setSucesso(false);
             }}
           >
@@ -165,6 +175,45 @@ export default function CadastroScreen() {
               <Text style={[s.escanearSeta, { color: colors.primary }]}>›</Text>
             )}
           </TouchableOpacity>
+
+          {/* Campo de foto — aparece após escaneamento */}
+          {fotoUrl !== null && (
+            <View style={s.campoWrap}>
+              <Text style={[s.campoLabel, { color: colors.textSecondary }]}>
+                Foto do produto
+              </Text>
+              <View style={[s.fotoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                {fotoComErro ? (
+                  <View style={[s.fotoFallback, { backgroundColor: colors.surfaceSecondary }]}>
+                    <Text style={s.fotoFallbackEmoji}>
+                      {CATEGORIAS.find((c) => c.valor === categoria)?.emoji ?? '📦'}
+                    </Text>
+                    <Text style={[s.fotoFallbackTexto, { color: colors.textDisabled }]}>
+                      Foto indisponível
+                    </Text>
+                  </View>
+                ) : (
+                  <Image
+                    source={{ uri: fotoUrl }}
+                    style={s.fotoImagem}
+                    resizeMode="contain"
+                    onError={() => setFotoComErro(true)}
+                  />
+                )}
+                {fonteDados && !fotoComErro && (
+                  <View style={[s.fonteBadge, { backgroundColor: colors.surfaceSecondary }]}>
+                    <Text style={[s.fonteTexto, { color: colors.textDisabled }]}>
+                      {fonteDados === 'cosmos'
+                        ? 'via Cosmos'
+                        : fonteDados === 'openfoodfacts'
+                        ? 'via Open Food Facts'
+                        : 'do estoque'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
 
           <View style={[s.separador, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
             <View style={[s.sepLinha, { backgroundColor: colors.border }]} />
@@ -284,9 +333,17 @@ export default function CadastroScreen() {
               </Text>
               <View style={s.previewConteudo}>
                 <View style={[s.previewEmojiBg, { backgroundColor: colors.surfaceSecondary }]}>
-                  <Text style={s.previewEmoji}>
-                    {CATEGORIAS.find((c) => c.valor === categoria)?.emoji ?? '📦'}
-                  </Text>
+                  {fotoUrl && !fotoComErro ? (
+                    <Image
+                      source={{ uri: fotoUrl }}
+                      style={s.previewFoto}
+                      onError={() => setFotoComErro(true)}
+                    />
+                  ) : (
+                    <Text style={s.previewEmoji}>
+                      {CATEGORIAS.find((c) => c.valor === categoria)?.emoji ?? '📦'}
+                    </Text>
+                  )}
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[s.previewNome, { color: colors.textPrimary }]}>
@@ -417,6 +474,34 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  fotoCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+    alignItems: 'center',
+  },
+  fotoImagem: {
+    width: '100%',
+    height: 200,
+  },
+  fotoFallback: {
+    width: '100%',
+    height: 200,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  fotoFallbackEmoji: { fontSize: 52 },
+  fotoFallbackTexto: { fontSize: 14 },
+  fonteBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    margin: 10,
+  },
+  fonteTexto: { fontSize: 12, fontWeight: '600' },
+
+  previewFoto: { width: 52, height: 52, borderRadius: 14 },
   previewEmoji: { fontSize: 28 },
   previewNome: { fontSize: 18, fontWeight: '700' },
   previewSub: { fontSize: 14, marginTop: 2 },
