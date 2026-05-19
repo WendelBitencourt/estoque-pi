@@ -181,7 +181,7 @@ export default function ProdutoDetalheScreen() {
             <View style={[styles.resumoCard, { backgroundColor: colors.primaryLight }]}>
               <Text style={[styles.resumoValor, { color: colors.primaryDark }]}>{total}</Text>
               <Text style={[styles.resumoLabel, { color: colors.primaryDark }]}>
-                {produto.unidade} em estoque
+                em estoque
               </Text>
             </View>
             <View style={[styles.resumoCard, { backgroundColor: colors.surfaceSecondary }]}>

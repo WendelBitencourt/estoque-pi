@@ -89,7 +89,7 @@ function Passo1({
               <View style={{ flex: 1 }}>
                 <Text style={[styles.sugestaoNome, { color: colors.textPrimary }]}>{p.nome}</Text>
                 <Text style={[styles.sugestaoSub, { color: colors.textSecondary }]}>
-                  {p.categoria} · {p.unidade}
+                  {p.categoria}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -274,7 +274,7 @@ function Passo2({
                         📅 Val. {formatarData(lote.validade)}
                       </Text>
                       <Text style={[styles.loteDetalhe, { color: ativo ? colors.primary : colors.textSecondary }]}>
-                        📦 {lote.quantidade} {produto.unidade} disponíveis
+                        📦 {lote.quantidade} disponíveis
                       </Text>
                     </View>
                     {ativo && (
@@ -295,7 +295,7 @@ function Passo2({
             <Text style={[styles.campoLabel, { color: colors.textSecondary }]}>
               Quantidade *{' '}
               <Text style={{ color: colors.textDisabled, fontWeight: '400' }}>
-                (máx. {loteSelecionado.quantidade} {produto.unidade})
+                (máx. {loteSelecionado.quantidade})
               </Text>
             </Text>
             <View style={styles.qtdRow}>
@@ -326,11 +326,6 @@ function Passo2({
                 <Text style={[styles.qtdBtnTexto, { color: colors.textPrimary }]}>＋</Text>
               </TouchableOpacity>
 
-              <View style={[styles.unidadeTag, { backgroundColor: colors.primaryLight }]}>
-                <Text style={[styles.unidadeTexto, { color: colors.primaryDark }]}>
-                  {produto.unidade}
-                </Text>
-              </View>
             </View>
             {qtd > maxQtd && (
               <Text style={[styles.erroTexto, { color: colors.riscoAlto }]}>
@@ -412,9 +407,9 @@ function Passo3({
         <View style={[styles.divider, { backgroundColor: colors.divider }]} />
 
         <View style={styles.confirmarLinhas}>
-          <ConfirmarLinha label="Quantidade" valor={`${quantidade} ${produto.unidade}`} colors={colors} />
+          <ConfirmarLinha label="Quantidade" valor={`${quantidade}`} colors={colors} />
           <ConfirmarLinha label="Validade do lote" valor={formatarData(lote.validade)} colors={colors} />
-          <ConfirmarLinha label="Restará no lote" valor={`${lote.quantidade - Number(quantidade)} ${produto.unidade}`} colors={colors} />
+          <ConfirmarLinha label="Restará no lote" valor={`${lote.quantidade - Number(quantidade)}`} colors={colors} />
           <ConfirmarLinha label="Data do registro" valor={new Date().toLocaleDateString('pt-BR')} colors={colors} />
         </View>
 
@@ -486,7 +481,7 @@ function Sucesso({
         {isDescarte ? 'Descarte registrado!' : 'Saída registrada!'}
       </Text>
       <Text style={[styles.sucessoSub, { color: colors.textSecondary }]}>
-        {quantidade} {produto.unidade} de {produto.nome}{' '}
+        {quantidade} de {produto.nome}{' '}
         {isDescarte ? 'foram descartados' : 'foram retirados'} do estoque.
       </Text>
 
@@ -680,8 +675,6 @@ const styles = StyleSheet.create({
     flex: 1, height: 52, borderRadius: 14, borderWidth: 1,
     fontSize: 22, fontWeight: '700',
   },
-  unidadeTag: { paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12 },
-  unidadeTexto: { fontSize: 16, fontWeight: '700' },
   erroTexto: { fontSize: 13, fontWeight: '600' },
 
   botoesRow: { flexDirection: 'row', gap: 12 },

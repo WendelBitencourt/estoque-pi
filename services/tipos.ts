@@ -6,11 +6,12 @@ export interface Produto {
   id: string;
   nome: string;
   categoria: Categoria;
-  unidade: string;
   emoji: string;
   ean?: string;
   fotoUrl?: string;
+  conteudo?: string;
   mediaConsumoDias: number;
+
 }
 
 // Compatível com o tipo usado nas telas da Parte 1

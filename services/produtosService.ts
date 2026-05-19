@@ -23,10 +23,10 @@ function docToProduto(d: DocumentSnapshot): Produto {
     id: d.id,
     nome: data.nome,
     categoria: data.categoria,
-    unidade: data.unidade,
     emoji: data.emoji ?? '📦',
     ean: data.ean ?? undefined,
     fotoUrl: data.fotoUrl ?? undefined,
+    conteudo: data.conteudo ?? undefined,
     mediaConsumoDias: data.mediaConsumoDias ?? 7,
   };
 }
@@ -70,10 +70,10 @@ export async function criarProduto(
   const ref = await addDoc(collection(db, COL), {
     nome: dados.nome,
     categoria: dados.categoria,
-    unidade: dados.unidade,
     emoji: dados.emoji,
     ean: dados.ean ?? null,
     fotoUrl: dados.fotoUrl ?? null,
+    conteudo: dados.conteudo ?? null,
     mediaConsumoDias: dados.mediaConsumoDias ?? 7,
     criadoEm: Timestamp.now(),
   });

@@ -92,7 +92,7 @@ function MovItem({ mov }: { mov: typeof MOVIMENTACOES[0] }) {
       {/* quantidade + data */}
       <View style={styles.movDireita}>
         <Text style={[styles.movQtd, { color: cfg.cor(colors) }]}>
-          {mov.tipo === 'entrada' ? '+' : '−'}{mov.quantidade} {produto.unidade}
+          {mov.tipo === 'entrada' ? '+' : '−'}{mov.quantidade}
         </Text>
         <Text style={[styles.movData, { color: colors.textDisabled }]}>
           {formatarData(mov.data)}

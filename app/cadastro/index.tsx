@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
   Image,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -17,8 +18,10 @@ import { useState, useEffect } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../../theme';
 import { Categoria } from '../../services/tipos';
+import * as ImagePicker from 'expo-image-picker';
 import { buscarPorEan } from '../../services/barcode';
 import { criarProduto } from '../../services/produtosService';
+import { uploadFoto } from '../../services/storageService';
 import { BarcodeScanner } from '../../components/BarcodeScanner';
 
 // ── constantes ───────────────────────────────────────────────────────────────
@@ -31,8 +34,6 @@ const CATEGORIAS: { valor: Categoria; label: string; emoji: string }[] = [
   { valor: 'vestuario', label: 'Vestuário', emoji: '👕' },
 ];
 
-const UNIDADES = ['un', 'kg', 'g', 'L', 'mL', 'pct', 'cx', 'par', 'rolo'];
-
 // ── tela ─────────────────────────────────────────────────────────────────────
 
 export default function CadastroScreen() {
@@ -41,8 +42,8 @@ export default function CadastroScreen() {
 
   const [nome, setNome] = useState('');
   const [categoria, setCategoria] = useState<Categoria | null>(null);
-  const [unidade, setUnidade] = useState<string | null>(null);
   const [ean, setEan] = useState<string | null>(null);
+  const [conteudo, setConteudo] = useState('');
   const [fotoUrl, setFotoUrl] = useState<string | null>(null);
   const [fotoComErro, setFotoComErro] = useState(false);
   const [fonteDados, setFonteDados] = useState<'cosmos' | 'openfoodfacts' | 'cache' | null>(null);
@@ -51,8 +52,10 @@ export default function CadastroScreen() {
   const [scannerAberto, setScannerAberto] = useState(false);
   const [buscando, setBuscando] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  const [enviandoFoto, setEnviandoFoto] = useState(false);
+  const [promptNaoEncontrado, setPromptNaoEncontrado] = useState(false);
 
-  const podeEnviar = nome.trim().length >= 2 && categoria !== null && unidade !== null;
+  const podeEnviar = nome.trim().length >= 2 && categoria !== null;
 
   // Auto-preenche quando a tela abre com ?ean= (vindo da tela de entrada)
   useEffect(() => {
@@ -65,6 +68,8 @@ export default function CadastroScreen() {
       if (resultado.status !== 'encontrado') return;
       setNome(resultado.dados.nome);
       setCategoria(resultado.dados.categoria);
+
+      if (resultado.dados.conteudo) setConteudo(resultado.dados.conteudo);
       setFotoUrl(resultado.dados.fotoUrl);
       setFotoComErro(false);
       setFonteDados(resultado.dados.fonte);
@@ -85,15 +90,20 @@ export default function CadastroScreen() {
     if (resultado.status === 'encontrado') {
       setNome(resultado.dados.nome);
       setCategoria(resultado.dados.categoria);
+
+      if (resultado.dados.conteudo) setConteudo(resultado.dados.conteudo);
       setFotoUrl(resultado.dados.fotoUrl);
       setFotoComErro(false);
       setFonteDados(resultado.dados.fonte);
       return;
     }
 
-    const mensagens: Record<typeof resultado.status, string> = {
-      nao_encontrado:
-        'Produto não encontrado nas bases de dados.\nPreencha o nome e a categoria manualmente.',
+    if (resultado.status === 'nao_encontrado') {
+      setPromptNaoEncontrado(true);
+      return;
+    }
+
+    const mensagens: Record<'limite_excedido' | 'sem_internet', string> = {
       limite_excedido:
         'O serviço de consulta atingiu o limite de hoje.\nPreencha o nome e a categoria manualmente.',
       sem_internet:
@@ -105,6 +115,61 @@ export default function CadastroScreen() {
     ]);
   }
 
+  async function handleTirarFoto() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permissão necessária', 'Precisamos acessar a galeria para escolher uma foto.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (result.canceled) return;
+    const uri = result.assets[0].uri;
+    setEnviandoFoto(true);
+    try {
+      const url = await uploadFoto(uri);
+      setFotoUrl(url);
+      setFotoComErro(false);
+      setFonteDados(null);
+    } catch (e) {
+      Alert.alert('Erro ao enviar foto', String(e));
+    } finally {
+      setEnviandoFoto(false);
+    }
+  }
+
+  async function handleAbrirCamera() {
+    setPromptNaoEncontrado(false);
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permissão necessária', 'Precisamos acessar a câmera para tirar uma foto.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (result.canceled) return;
+    const uri = result.assets[0].uri;
+    setEnviandoFoto(true);
+    try {
+      const url = await uploadFoto(uri);
+      setFotoUrl(url);
+      setFotoComErro(false);
+      setFonteDados(null);
+    } catch (e) {
+      Alert.alert('Erro ao enviar foto', String(e));
+    } finally {
+      setEnviandoFoto(false);
+    }
+  }
+
   async function handleSalvar() {
     if (!podeEnviar || salvando) return;
     setSalvando(true);
@@ -113,10 +178,10 @@ export default function CadastroScreen() {
       await criarProduto({
         nome: nome.trim(),
         categoria: categoria!,
-        unidade: unidade!,
         emoji: cat.emoji,
         ean: ean ?? undefined,
         fotoUrl: fotoUrl ?? undefined,
+        conteudo: conteudo.trim() || undefined,
       });
       setSucesso(true);
     } catch {
@@ -155,8 +220,8 @@ export default function CadastroScreen() {
             onPress={() => {
               setNome('');
               setCategoria(null);
-              setUnidade(null);
               setEan(null);
+              setConteudo('');
               setFotoUrl(null);
               setFotoComErro(false);
               setFonteDados(null);
@@ -252,6 +317,29 @@ export default function CadastroScreen() {
             </View>
           )}
 
+          {/* Botão adicionar foto manual */}
+          <TouchableOpacity
+            style={[s.fotoBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={handleTirarFoto}
+            activeOpacity={0.8}
+            disabled={enviandoFoto}
+          >
+            <Text style={s.escanearEmoji}>🖼️</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[s.escanearTitulo, { color: colors.textPrimary }]}>
+                {fotoUrl ? 'Trocar foto' : 'Adicionar foto'}
+              </Text>
+              <Text style={[s.escanearSub, { color: colors.textSecondary }]}>
+                Escolher da galeria
+              </Text>
+            </View>
+            {enviandoFoto ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : (
+              <Text style={[s.escanearSeta, { color: colors.textSecondary }]}>›</Text>
+            )}
+          </TouchableOpacity>
+
           <View style={[s.separador, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
             <View style={[s.sepLinha, { backgroundColor: colors.border }]} />
             <Text style={[s.sepTexto, { color: colors.textDisabled }]}>ou preencha</Text>
@@ -321,49 +409,31 @@ export default function CadastroScreen() {
             </View>
           </View>
 
-          {/* Unidade */}
+          {/* Conteúdo por embalagem */}
           <View style={s.campoWrap}>
             <Text style={[s.campoLabel, { color: colors.textSecondary }]}>
-              Unidade de medida *
+              Conteúdo por embalagem
             </Text>
-            <View style={s.unidadesWrap}>
-              {UNIDADES.map((u) => {
-                const ativo = unidade === u;
-                return (
-                  <TouchableOpacity
-                    key={u}
-                    style={[
-                      s.unidadeChip,
-                      {
-                        backgroundColor: ativo ? colors.accent : colors.surface,
-                        borderColor: ativo ? colors.accent : colors.border,
-                      },
-                    ]}
-                    onPress={() => setUnidade(u)}
-                    activeOpacity={0.75}
-                  >
-                    <Text
-                      style={[
-                        s.unidadeLabel,
-                        { color: ativo ? '#FFFFFF' : colors.textSecondary },
-                      ]}
-                    >
-                      {u}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+            <View
+              style={[
+                s.inputWrap,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <TextInput
+                style={[s.inputTexto, { color: colors.textPrimary }]}
+                placeholder="Ex: 500g, 1L, 250mL…"
+                placeholderTextColor={colors.textDisabled}
+                value={conteudo}
+                onChangeText={setConteudo}
+                maxLength={30}
+                returnKeyType="done"
+              />
             </View>
-            {unidade && (
-              <Text style={[s.unidadeDica, { color: colors.textSecondary }]}>
-                As quantidades serão registradas em{' '}
-                <Text style={{ fontWeight: '700', color: colors.textPrimary }}>{unidade}</Text>.
-              </Text>
-            )}
           </View>
 
           {/* Preview do produto */}
-          {nome.trim().length >= 2 && categoria && unidade && (
+          {nome.trim().length >= 2 && categoria && (
             <View style={[s.previewCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Text style={[s.previewLabel, { color: colors.textSecondary }]}>
                 PRÉVIA DO PRODUTO
@@ -387,7 +457,8 @@ export default function CadastroScreen() {
                     {nome.trim()}
                   </Text>
                   <Text style={[s.previewSub, { color: colors.textSecondary }]}>
-                    {CATEGORIAS.find((c) => c.valor === categoria)?.label} · {unidade}
+                    {CATEGORIAS.find((c) => c.valor === categoria)?.label}
+                    {conteudo ? ` · ${conteudo}` : ''}
                     {ean ? ` · EAN ${ean}` : ''}
                   </Text>
                 </View>
@@ -423,6 +494,43 @@ export default function CadastroScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
+      {/* Modal: produto não encontrado */}
+      <Modal
+        visible={promptNaoEncontrado}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPromptNaoEncontrado(false)}
+      >
+        <View style={s.modalOverlay}>
+          <View style={[s.modalCard, { backgroundColor: colors.surface }]}>
+            <Text style={s.modalEmoji}>📦</Text>
+            <Text style={[s.modalTitulo, { color: colors.textPrimary }]}>
+              Produto não encontrado
+            </Text>
+            <Text style={[s.modalTexto, { color: colors.textSecondary }]}>
+              Este código de barras não está nas nossas bases de dados.{'\n'}
+              Tire uma foto do produto e preencha o nome e a categoria manualmente.
+            </Text>
+            <TouchableOpacity
+              style={[s.modalBtnPrimario, { backgroundColor: colors.primary }]}
+              onPress={handleAbrirCamera}
+              activeOpacity={0.85}
+            >
+              <Text style={s.modalBtnPrimarioTexto}>📷  Tirar foto agora</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.modalBtnSecundario, { borderColor: colors.border }]}
+              onPress={() => setPromptNaoEncontrado(false)}
+              activeOpacity={0.75}
+            >
+              <Text style={[s.modalBtnSecundarioTexto, { color: colors.textSecondary }]}>
+                Cancelar
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* Modal do scanner */}
       <BarcodeScanner
         visivel={scannerAberto}
@@ -452,6 +560,15 @@ const s = StyleSheet.create({
   escanearSub: { fontSize: 13, marginTop: 2 },
   escanearSeta: { fontSize: 26, fontWeight: '300' },
 
+  fotoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 18,
+    borderRadius: 18,
+    borderWidth: 1,
+    marginTop: 14,
+  },
   separador: { marginVertical: 20 },
   sepLinha: { flex: 1, height: 1 },
   sepTexto: { fontSize: 13, fontWeight: '600' },
@@ -486,18 +603,6 @@ const s = StyleSheet.create({
   },
   categoriaEmoji: { fontSize: 20 },
   categoriaLabel: { fontSize: 15, fontWeight: '600' },
-
-  unidadesWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  unidadeChip: {
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    minWidth: 56,
-    alignItems: 'center',
-  },
-  unidadeLabel: { fontSize: 16, fontWeight: '700' },
-  unidadeDica: { fontSize: 13, lineHeight: 18 },
 
   previewCard: {
     borderRadius: 16,
@@ -553,6 +658,41 @@ const s = StyleSheet.create({
     alignItems: 'center',
   },
   salvarTexto: { fontSize: 18, fontWeight: '700' },
+
+  // modal produto não encontrado
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  modalCard: {
+    width: '100%',
+    borderRadius: 24,
+    padding: 28,
+    alignItems: 'center',
+    gap: 12,
+  },
+  modalEmoji: { fontSize: 52, marginBottom: 4 },
+  modalTitulo: { fontSize: 22, fontWeight: '800', textAlign: 'center' },
+  modalTexto: { fontSize: 15, textAlign: 'center', lineHeight: 22 },
+  modalBtnPrimario: {
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  modalBtnPrimarioTexto: { color: '#FFF', fontSize: 17, fontWeight: '700' },
+  modalBtnSecundario: {
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  modalBtnSecundarioTexto: { fontSize: 16, fontWeight: '600' },
 
   // sucesso
   sucessoWrap: {

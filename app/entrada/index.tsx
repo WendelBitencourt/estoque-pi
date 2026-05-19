@@ -9,6 +9,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -125,11 +126,15 @@ function Passo1({
               }}
               activeOpacity={0.7}
             >
-              <Text style={styles.sugestaoEmoji}>{p.emoji}</Text>
+              {p.fotoUrl ? (
+                <Image source={{ uri: p.fotoUrl }} style={styles.sugestaoFoto} />
+              ) : (
+                <Text style={styles.sugestaoEmoji}>{p.emoji}</Text>
+              )}
               <View style={{ flex: 1 }}>
                 <Text style={[styles.sugestaoNome, { color: colors.textPrimary }]}>{p.nome}</Text>
                 <Text style={[styles.sugestaoSub, { color: colors.textSecondary }]}>
-                  {p.categoria} · {p.unidade}
+                  {p.categoria}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -140,7 +145,11 @@ function Passo1({
       {/* Produto selecionado */}
       {selecionado && (
         <View style={[styles.selecionadoCard, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
-          <Text style={styles.selecionadoEmoji}>{selecionado.emoji}</Text>
+          {selecionado.fotoUrl ? (
+            <Image source={{ uri: selecionado.fotoUrl }} style={styles.selecionadoFoto} />
+          ) : (
+            <Text style={styles.selecionadoEmoji}>{selecionado.emoji}</Text>
+          )}
           <View style={{ flex: 1 }}>
             <Text style={[styles.selecionadoNome, { color: colors.primaryDark }]}>
               {selecionado.nome}
@@ -251,7 +260,11 @@ function Passo2({
 
         {/* Produto resumo */}
         <View style={[styles.produtoResumo, { backgroundColor: colors.surfaceSecondary }]}>
-          <Text style={styles.produtoResumoEmoji}>{produto.emoji}</Text>
+          {produto.fotoUrl ? (
+            <Image source={{ uri: produto.fotoUrl }} style={styles.produtoResumoFoto} />
+          ) : (
+            <Text style={styles.produtoResumoEmoji}>{produto.emoji}</Text>
+          )}
           <Text style={[styles.produtoResumoNome, { color: colors.textPrimary }]}>{produto.nome}</Text>
         </View>
 
@@ -284,11 +297,6 @@ function Passo2({
               <Text style={[styles.qtdBtnTexto, { color: colors.textPrimary }]}>＋</Text>
             </TouchableOpacity>
 
-            <View style={[styles.unidadeTag, { backgroundColor: colors.primaryLight }]}>
-              <Text style={[styles.unidadeTexto, { color: colors.primaryDark }]}>
-                {produto.unidade}
-              </Text>
-            </View>
           </View>
         </View>
 
@@ -373,7 +381,11 @@ function Passo3({
       {/* Card de confirmação */}
       <View style={[styles.confirmarCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.confirmarHeader}>
-          <Text style={styles.confirmarEmoji}>{produto.emoji}</Text>
+          {produto.fotoUrl ? (
+            <Image source={{ uri: produto.fotoUrl }} style={styles.confirmarFoto} />
+          ) : (
+            <Text style={styles.confirmarEmoji}>{produto.emoji}</Text>
+          )}
           <View style={{ flex: 1 }}>
             <Text style={[styles.confirmarNome, { color: colors.textPrimary }]}>{produto.nome}</Text>
             <Text style={[styles.confirmarSub, { color: colors.textSecondary }]}>Entrada de doação</Text>
@@ -389,7 +401,7 @@ function Passo3({
           <View style={styles.confirmarLinha}>
             <Text style={[styles.confirmarKey, { color: colors.textSecondary }]}>Quantidade</Text>
             <Text style={[styles.confirmarVal, { color: colors.textPrimary }]}>
-              {quantidade} {produto.unidade}
+              {quantidade}
             </Text>
           </View>
           <View style={styles.confirmarLinha}>
@@ -450,7 +462,7 @@ function Sucesso({ produto, quantidade, onNovo, onVoltar }: {
         Entrada registrada!
       </Text>
       <Text style={[styles.sucessoSub, { color: colors.textSecondary }]}>
-        {quantidade} {produto.unidade} de {produto.nome} adicionados ao estoque.
+        {quantidade} de {produto.nome} adicionados ao estoque.
       </Text>
 
       <TouchableOpacity
@@ -624,6 +636,7 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   sugestaoEmoji: { fontSize: 24 },
+  sugestaoFoto: { width: 36, height: 36, borderRadius: 8 },
   sugestaoNome: { fontSize: 16, fontWeight: '600' },
   sugestaoSub: { fontSize: 13 },
 
@@ -636,6 +649,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   selecionadoEmoji: { fontSize: 30 },
+  selecionadoFoto: { width: 40, height: 40, borderRadius: 10 },
   selecionadoNome: { fontSize: 17, fontWeight: '700' },
   selecionadoSub: { fontSize: 14, fontWeight: '600' },
   trocar: { fontSize: 14, fontWeight: '600' },
@@ -664,6 +678,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   produtoResumoEmoji: { fontSize: 28 },
+  produtoResumoFoto: { width: 40, height: 40, borderRadius: 10 },
   produtoResumoNome: { fontSize: 18, fontWeight: '700' },
 
   campoWrap: { gap: 8 },
@@ -688,12 +703,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
   },
-  unidadeTag: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  unidadeTexto: { fontSize: 16, fontWeight: '700' },
+
 
   botoesRow: { flexDirection: 'row', gap: 12 },
   voltarBtn: {
@@ -733,6 +743,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   confirmarEmoji: { fontSize: 36 },
+  confirmarFoto: { width: 52, height: 52, borderRadius: 14 },
   confirmarNome: { fontSize: 19, fontWeight: '800' },
   confirmarSub: { fontSize: 14 },
   entradaBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },

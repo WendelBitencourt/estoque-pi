@@ -60,7 +60,7 @@ function ProdutoItem({ item }: { item: ItemInfo }) {
           Lote {item.codigoLote} · val. {formatarData(item.proximaValidade)}
         </Text>
         <Text style={[styles.itemQtd, { color: colors.textSecondary }]}>
-          {item.total} {item.produto.unidade} em estoque
+          {item.total} em estoque
         </Text>
       </View>
 

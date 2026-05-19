@@ -28,7 +28,6 @@ interface ItemNecessidade {
   produtoId: string;
   nome: string;
   emoji: string;
-  unidade: string;
   total: number;
   risco: NivelRisco;
   diasPiorLote: number | null;
@@ -61,7 +60,6 @@ function buildLista(): { urgentes: ItemNecessidade[]; atencao: ItemNecessidade[]
       produtoId: p.id,
       nome: p.nome,
       emoji: p.emoji,
-      unidade: p.unidade,
       total,
       risco,
       diasPiorLote: dias,
@@ -126,7 +124,7 @@ function NecessidadeItem({ item }: { item: ItemNecessidade }) {
           <Text style={[styles.itemEstoque, { color: colors.textSecondary }]}>
             {item.total === 0
               ? '⚠️ Sem estoque'
-              : `${item.total} ${item.unidade} em estoque`}
+              : `${item.total} em estoque`}
           </Text>
         </View>
         <Text style={[styles.itemMotivo, {

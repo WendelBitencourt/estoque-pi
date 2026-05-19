@@ -10,6 +10,7 @@ export interface ResultadoBarcode {
   fotoUrl: string | null;
   categoria: Categoria;
   ean: string;
+  conteudo: string | null;
   /** De onde veio o resultado */
   fonte: 'cosmos' | 'openfoodfacts' | 'cache';
 }
@@ -46,6 +47,26 @@ function mapearCategoria(tags: string[]): Categoria {
   return 'alimentos';
 }
 
+// ── Extração de conteúdo por embalagem ───────────────────────────────────────
+
+function extrairConteudo(quantity: unknown, nome: string): string | null {
+  // Prioridade 1: campo quantity da API
+  if (quantity) {
+    const q = String(quantity).trim();
+    if (q) return q;
+  }
+  // Prioridade 2: extrair do nome (ex: "MIOJO FRANGO 85G" → "85g")
+  const match = nome.match(/(\d+(?:[.,]\d+)?)\s*(ml|l\b|kg|g\b)/i);
+  if (match) {
+    const num = match[1];
+    const un  = match[2].toLowerCase()
+      .replace(/^l$/,  'L')
+      .replace(/^ml$/, 'mL');
+    return `${num}${un}`;
+  }
+  return null;
+}
+
 // ── Detecção de erro de rede ──────────────────────────────────────────────────
 
 function eSemInternet(err: unknown): boolean {
@@ -71,6 +92,7 @@ async function buscarNoCacheFirestore(ean: string): Promise<ResultadoBarcode | n
     fotoUrl:   data.fotoUrl ?? null,
     categoria: data.categoria,
     ean,
+    conteudo:  data.conteudo ?? null,
     fonte:     'cache',
   };
 }
@@ -106,6 +128,7 @@ async function consultarCosmos(ean: string): Promise<StatusBusca> {
       fotoUrl:   data.thumbnail || data.avatar || null,
       categoria: mapearCategoria(data.category_tags ?? []),
       ean,
+      conteudo:  extrairConteudo(data.quantity, nome),
       fonte:     'cosmos',
     },
   };
@@ -144,6 +167,7 @@ async function consultarOpenFoodFacts(ean: string): Promise<StatusBusca> {
       fotoUrl:   p.image_url || null,
       categoria: mapearCategoria(categoriaTags),
       ean,
+      conteudo:  extrairConteudo(p.quantity, nome),
       fonte:     'openfoodfacts',
     },
   };

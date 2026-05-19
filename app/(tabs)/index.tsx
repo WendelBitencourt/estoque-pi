@@ -172,7 +172,7 @@ export default function InicioScreen() {
                     {produto.nome}
                   </Text>
                   <Text style={[styles.itemSub, { color: colors.textSecondary }]}>
-                    {total} {produto.unidade} em estoque
+                    {total} em estoque
                   </Text>
                 </View>
                 <RiskBadge risco={risco} diasParaVencer={diasPiorLote} />

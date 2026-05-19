@@ -26,7 +26,6 @@ export async function seedDadosIniciais(): Promise<void> {
     const ref = await addDoc(collection(db, 'produtos'), {
       nome: p.nome,
       categoria: p.categoria,
-      unidade: p.unidade,
       emoji: p.emoji,
       ean: null,
       fotoUrl: null,
