@@ -39,3 +39,11 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# ML — ambiente virtual e artefatos gerados
+ml/.venv/
+ml/data/
+ml/__pycache__/
+ml/**/__pycache__/
+*.pkl
+*.joblib
