@@ -72,6 +72,7 @@ function Passo1({
       const prod = await getProdutoPorEan(ean);
       if (prod) {
         onSelecionar(prod);
+        onAvancar();
       } else {
         // Produto não cadastrado — vai para cadastro com o EAN pré-preenchido
         router.push(`/cadastro?ean=${ean}`);
