@@ -47,3 +47,7 @@ ml/__pycache__/
 ml/**/__pycache__/
 *.pkl
 *.joblib
+
+
+# scripts
+scripts/
