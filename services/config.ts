@@ -14,3 +14,5 @@
 
 export const COSMOS_TOKEN: string =
   (typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_COSMOS_TOKEN) || '';
+
+export const ML_API_URL = 'https://minduim-casadacrianca-validade.hf.space';

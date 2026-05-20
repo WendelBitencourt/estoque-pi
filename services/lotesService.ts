@@ -14,7 +14,8 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { Lote } from './tipos';
-import { calcularRisco, gerarCodigoLote } from './risco';
+import { calcularRisco, diasParaVencer, gerarCodigoLote } from './risco';
+import { classificarRiscoML } from './mlService';
 
 const COL = 'lotes';
 
@@ -83,10 +84,17 @@ export async function criarLote(dados: {
   nomeProduto: string;
   quantidade: number;
   validade: string; // "DD/MM/YYYY" vindo do formulário
+  mediaConsumoDias: number;
 }): Promise<string> {
   const [d, m, y] = dados.validade.split('/');
   const validadeISO = `${y}-${m}-${d}`;
-  const risco = calcularRisco(validadeISO);
+  const dias = diasParaVencer(validadeISO);
+  let risco = calcularRisco(validadeISO);
+  try {
+    risco = await classificarRiscoML(dias, dados.mediaConsumoDias, dados.quantidade);
+  } catch {
+    // ML offline — mantém classificação por regra
+  }
   const validadeDate = new Date(`${validadeISO}T12:00:00`);
 
   const ref = await addDoc(collection(db, COL), {

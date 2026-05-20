@@ -17,10 +17,12 @@ import { useState, useEffect } from 'react';
 import { useTheme } from '../../theme';
 import { StepIndicator } from '../../components/StepIndicator';
 import { BarcodeScanner } from '../../components/BarcodeScanner';
-import { Produto } from '../../services/tipos';
+import { Produto, NivelRisco } from '../../services/tipos';
 import { subscribeToProdutos, getProdutoPorEan } from '../../services/produtosService';
 import { criarLote } from '../../services/lotesService';
 import { criarMovimentacao } from '../../services/movimentacoesService';
+import { classificarRiscoML } from '../../services/mlService';
+import { calcularRisco, diasParaVencer } from '../../services/risco';
 
 const STEP_LABELS = ['Produto', 'Quantidade', 'Confirmar'];
 
@@ -227,6 +229,8 @@ function Passo2({
   produto,
   quantidade,
   validade,
+  risco,
+  carregandoRisco,
   onQuantidade,
   onValidade,
   onAvancar,
@@ -235,6 +239,8 @@ function Passo2({
   produto: Produto;
   quantidade: string;
   validade: string;
+  risco: NivelRisco | null;
+  carregandoRisco: boolean;
   onQuantidade: (v: string) => void;
   onValidade: (v: string) => void;
   onAvancar: () => void;
@@ -326,6 +332,35 @@ function Passo2({
           )}
         </View>
 
+        {/* Badge de risco ML */}
+        {carregandoRisco && (
+          <View style={[styles.riscoBanner, { backgroundColor: colors.surfaceSecondary }]}>
+            <ActivityIndicator size="small" color={colors.textSecondary} />
+            <Text style={[styles.riscoBannerTexto, { color: colors.textSecondary }]}>
+              Calculando risco pela IA…
+            </Text>
+          </View>
+        )}
+        {!carregandoRisco && risco !== null && (
+          <View style={[styles.riscoBanner, {
+            backgroundColor: risco === 'risco_alto' ? colors.riscoAltoLight
+              : risco === 'atencao' ? colors.riscoAtencaoLight
+              : colors.riscoSeguroLight,
+          }]}>
+            <Text style={[styles.riscoBannerTexto, {
+              color: risco === 'risco_alto' ? colors.riscoAltoDark
+                : risco === 'atencao' ? colors.riscoAtencaoDark
+                : colors.riscoSeguroDark,
+            }]}>
+              {risco === 'risco_alto'
+                ? '🔴 Alto risco — lote pode vencer antes de ser consumido'
+                : risco === 'atencao'
+                ? '🟡 Atenção — monitorar este lote de perto'
+                : '🟢 Validade confortável em relação ao consumo'}
+            </Text>
+          </View>
+        )}
+
         <View style={{ flex: 1 }} />
 
         <View style={styles.botoesRow}>
@@ -357,6 +392,7 @@ function Passo3({
   produto,
   quantidade,
   validade,
+  risco,
   salvando,
   onConfirmar,
   onVoltar,
@@ -364,6 +400,7 @@ function Passo3({
   produto: Produto;
   quantidade: string;
   validade: string;
+  risco: NivelRisco | null;
   salvando: boolean;
   onConfirmar: () => void;
   onVoltar: () => void;
@@ -415,6 +452,26 @@ function Passo3({
               {new Date().toLocaleDateString('pt-BR')}
             </Text>
           </View>
+          {risco !== null && (
+            <View style={styles.confirmarLinha}>
+              <Text style={[styles.confirmarKey, { color: colors.textSecondary }]}>Risco</Text>
+              <View style={[styles.riscoPill, {
+                backgroundColor: risco === 'risco_alto' ? colors.riscoAltoLight
+                  : risco === 'atencao' ? colors.riscoAtencaoLight
+                  : colors.riscoSeguroLight,
+              }]}>
+                <Text style={[styles.riscoPillTexto, {
+                  color: risco === 'risco_alto' ? colors.riscoAltoDark
+                    : risco === 'atencao' ? colors.riscoAtencaoDark
+                    : colors.riscoSeguroDark,
+                }]}>
+                  {risco === 'risco_alto' ? '🔴 Alto risco'
+                    : risco === 'atencao' ? '🟡 Atenção'
+                    : '🟢 Seguro'}
+                </Text>
+              </View>
+            </View>
+          )}
         </View>
       </View>
 
@@ -495,11 +552,36 @@ export default function EntradaScreen() {
   const [produto, setProduto] = useState<Produto | null>(null);
   const [quantidade, setQuantidade] = useState('1');
   const [validade, setValidade] = useState('');
+  const [risco, setRisco] = useState<NivelRisco | null>(null);
+  const [carregandoRisco, setCarregandoRisco] = useState(false);
 
   useEffect(() => {
     const unsub = subscribeToProdutos(setProdutos);
     return unsub;
   }, []);
+
+  // Classifica risco via ML sempre que validade ou quantidade mudam
+  useEffect(() => {
+    if (!produto || !validarData(validade) || Number(quantidade) < 1) {
+      setRisco(null);
+      setCarregandoRisco(false);
+      return;
+    }
+    setCarregandoRisco(true);
+    const ctrl = { cancelado: false };
+    const [d, m, y] = validade.split('/');
+    const validadeISO = `${y}-${m}-${d}`;
+    const dias = diasParaVencer(validadeISO);
+    classificarRiscoML(dias, produto.mediaConsumoDias, Number(quantidade))
+      .then((r) => { if (!ctrl.cancelado) { setRisco(r); setCarregandoRisco(false); } })
+      .catch(() => {
+        if (!ctrl.cancelado) {
+          setRisco(calcularRisco(validadeISO));
+          setCarregandoRisco(false);
+        }
+      });
+    return () => { ctrl.cancelado = true; };
+  }, [produto, validade, quantidade]);
 
   function resetar() {
     setPasso(0);
@@ -508,6 +590,8 @@ export default function EntradaScreen() {
     setProduto(null);
     setQuantidade('1');
     setValidade('');
+    setRisco(null);
+    setCarregandoRisco(false);
   }
 
   async function handleConfirmar() {
@@ -519,6 +603,7 @@ export default function EntradaScreen() {
         nomeProduto: produto.nome,
         quantidade: Number(quantidade),
         validade,
+        mediaConsumoDias: produto.mediaConsumoDias,
       });
       await criarMovimentacao({
         tipo: 'entrada',
@@ -570,6 +655,8 @@ export default function EntradaScreen() {
             produto={produto}
             quantidade={quantidade}
             validade={validade}
+            risco={risco}
+            carregandoRisco={carregandoRisco}
             onQuantidade={setQuantidade}
             onValidade={setValidade}
             onAvancar={() => setPasso(2)}
@@ -581,6 +668,7 @@ export default function EntradaScreen() {
             produto={produto}
             quantidade={quantidade}
             validade={validade}
+            risco={risco}
             salvando={salvando}
             onConfirmar={handleConfirmar}
             onVoltar={() => setPasso(1)}
@@ -791,4 +879,20 @@ const styles = StyleSheet.create({
   novoBotaoTexto: { color: '#FFF', fontSize: 17, fontWeight: '700' },
   voltarInicioBtn: { paddingVertical: 12 },
   voltarInicioTexto: { fontSize: 16, fontWeight: '600' },
+
+  riscoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 14,
+    padding: 14,
+  },
+  riscoBannerTexto: { fontSize: 15, fontWeight: '600', flex: 1 },
+
+  riscoPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  riscoPillTexto: { fontSize: 14, fontWeight: '700' },
 });
