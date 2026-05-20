@@ -7,15 +7,22 @@ import {
   StyleSheet,
   Platform,
   KeyboardAvoidingView,
+  Alert,
+  ActivityIndicator,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme } from '../../theme';
 import { StepIndicator } from '../../components/StepIndicator';
 import { RiskBadge } from '../../components/RiskBadge';
-import { PRODUTOS, Produto } from '../../data/produtos';
-import { getLotesByProduto, diasParaVencer, Lote } from '../../data/lotes';
+import { Produto, Lote } from '../../services/tipos';
+import { subscribeToProdutos } from '../../services/produtosService';
+import { atualizarMediaConsumo } from '../../services/produtosService';
+import { subscribeLotesByProduto, ajustarQuantidadeLote } from '../../services/lotesService';
+import { criarMovimentacao, recalcularMediaConsumo } from '../../services/movimentacoesService';
+import { diasParaVencer } from '../../services/risco';
 
 type TipoBaixa = 'saida' | 'descarte';
 
@@ -30,10 +37,12 @@ function formatarData(iso: string) {
 
 function Passo1({
   selecionado,
+  produtos,
   onSelecionar,
   onAvancar,
 }: {
   selecionado: Produto | null;
+  produtos: Produto[];
   onSelecionar: (p: Produto | null) => void;
   onAvancar: () => void;
 }) {
@@ -41,9 +50,7 @@ function Passo1({
   const [busca, setBusca] = useState('');
 
   const sugestoes = busca.trim().length > 0
-    ? PRODUTOS.filter((p) =>
-        p.nome.toLowerCase().includes(busca.toLowerCase())
-      ).slice(0, 6)
+    ? produtos.filter((p) => p.nome.toLowerCase().includes(busca.toLowerCase())).slice(0, 6)
     : [];
 
   return (
@@ -68,6 +75,11 @@ function Passo1({
           }}
           autoFocus
         />
+        {busca.length > 0 && (
+          <TouchableOpacity onPress={() => setBusca('')}>
+            <Text style={{ fontSize: 16, color: colors.textDisabled }}>✕</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {sugestoes.length > 0 && (
@@ -79,18 +91,17 @@ function Passo1({
                 styles.sugestaoItem,
                 i < sugestoes.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.divider },
               ]}
-              onPress={() => {
-                onSelecionar(p);
-                setBusca('');
-              }}
+              onPress={() => { onSelecionar(p); setBusca(''); }}
               activeOpacity={0.7}
             >
-              <Text style={styles.sugestaoEmoji}>{p.emoji}</Text>
+              {p.fotoUrl ? (
+                <Image source={{ uri: p.fotoUrl }} style={styles.sugestaoFoto} />
+              ) : (
+                <Text style={styles.sugestaoEmoji}>{p.emoji}</Text>
+              )}
               <View style={{ flex: 1 }}>
                 <Text style={[styles.sugestaoNome, { color: colors.textPrimary }]}>{p.nome}</Text>
-                <Text style={[styles.sugestaoSub, { color: colors.textSecondary }]}>
-                  {p.categoria}
-                </Text>
+                <Text style={[styles.sugestaoSub, { color: colors.textSecondary }]}>{p.categoria}</Text>
               </View>
             </TouchableOpacity>
           ))}
@@ -99,7 +110,11 @@ function Passo1({
 
       {selecionado && (
         <View style={[styles.selecionadoCard, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
-          <Text style={styles.selecionadoEmoji}>{selecionado.emoji}</Text>
+          {selecionado.fotoUrl ? (
+            <Image source={{ uri: selecionado.fotoUrl }} style={styles.selecionadoFoto} />
+          ) : (
+            <Text style={styles.selecionadoEmoji}>{selecionado.emoji}</Text>
+          )}
           <View style={{ flex: 1 }}>
             <Text style={[styles.selecionadoNome, { color: colors.primaryDark }]}>{selecionado.nome}</Text>
             <Text style={[styles.selecionadoSub, { color: colors.primary }]}>Produto selecionado ✓</Text>
@@ -150,7 +165,12 @@ function Passo2({
   onVoltar: () => void;
 }) {
   const { colors } = useTheme();
-  const lotes = getLotesByProduto(produto.id);
+  const [lotes, setLotes] = useState<Lote[]>([]);
+
+  useEffect(() => {
+    const unsub = subscribeLotesByProduto(produto.id, setLotes);
+    return unsub;
+  }, [produto.id]);
 
   const qtd = Number(quantidade);
   const maxQtd = loteSelecionado?.quantidade ?? 0;
@@ -173,7 +193,11 @@ function Passo2({
 
         {/* Produto resumo */}
         <View style={[styles.produtoResumo, { backgroundColor: colors.surfaceSecondary }]}>
-          <Text style={styles.produtoEmoji}>{produto.emoji}</Text>
+          {produto.fotoUrl ? (
+            <Image source={{ uri: produto.fotoUrl }} style={styles.produtoFoto} />
+          ) : (
+            <Text style={styles.produtoEmoji}>{produto.emoji}</Text>
+          )}
           <Text style={[styles.produtoNome, { color: colors.textPrimary }]}>{produto.nome}</Text>
         </View>
 
@@ -187,19 +211,13 @@ function Passo2({
             ] as const).map((t) => {
               const ativo = tipo === t.valor;
               const bg = ativo
-                ? t.valor === 'descarte'
-                  ? colors.riscoAltoLight
-                  : colors.primaryLight
+                ? t.valor === 'descarte' ? colors.riscoAltoLight : colors.primaryLight
                 : colors.surface;
               const border = ativo
-                ? t.valor === 'descarte'
-                  ? colors.riscoAlto
-                  : colors.primary
+                ? t.valor === 'descarte' ? colors.riscoAlto : colors.primary
                 : colors.border;
               const textC = ativo
-                ? t.valor === 'descarte'
-                  ? colors.riscoAltoDark
-                  : colors.primaryDark
+                ? t.valor === 'descarte' ? colors.riscoAltoDark : colors.primaryDark
                 : colors.textSecondary;
               return (
                 <TouchableOpacity
@@ -220,12 +238,8 @@ function Passo2({
         {/* Lista de lotes */}
         <View style={styles.campoWrap}>
           <View style={styles.lotesTituloRow}>
-            <Text style={[styles.campoLabel, { color: colors.textSecondary }]}>
-              Lote *
-            </Text>
-            <Text style={[styles.lotesDica, { color: colors.textDisabled }]}>
-              do mais antigo ao mais novo
-            </Text>
+            <Text style={[styles.campoLabel, { color: colors.textSecondary }]}>Lote *</Text>
+            <Text style={[styles.lotesDica, { color: colors.textDisabled }]}>do mais antigo ao mais novo</Text>
           </View>
 
           {lotes.length === 0 ? (
@@ -250,17 +264,12 @@ function Passo2({
                         borderColor: ativo ? colors.primary : colors.border,
                         borderLeftColor: ativo
                           ? colors.primary
-                          : lote.risco === 'risco_alto'
-                          ? colors.riscoAlto
-                          : lote.risco === 'atencao'
-                          ? colors.riscoAtencao
+                          : lote.risco === 'risco_alto' ? colors.riscoAlto
+                          : lote.risco === 'atencao' ? colors.riscoAtencao
                           : colors.riscoSeguro,
                       },
                     ]}
-                    onPress={() => {
-                      onLote(lote);
-                      onQuantidade('1');
-                    }}
+                    onPress={() => { onLote(lote); onQuantidade('1'); }}
                     activeOpacity={0.75}
                   >
                     <View style={styles.loteItemTop}>
@@ -278,9 +287,7 @@ function Passo2({
                       </Text>
                     </View>
                     {ativo && (
-                      <Text style={[styles.loteSelecionadoTag, { color: colors.primary }]}>
-                        ✓ Selecionado
-                      </Text>
+                      <Text style={[styles.loteSelecionadoTag, { color: colors.primary }]}>✓ Selecionado</Text>
                     )}
                   </TouchableOpacity>
                 );
@@ -305,7 +312,6 @@ function Passo2({
               >
                 <Text style={[styles.qtdBtnTexto, { color: colors.textPrimary }]}>−</Text>
               </TouchableOpacity>
-
               <TextInput
                 style={[styles.qtdInput, {
                   color: qtdValida ? colors.textPrimary : colors.riscoAlto,
@@ -318,14 +324,12 @@ function Passo2({
                 textAlign="center"
                 maxLength={4}
               />
-
               <TouchableOpacity
                 style={[styles.qtdBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
                 onPress={() => onQuantidade(String(Math.min(maxQtd, qtd + 1)))}
               >
                 <Text style={[styles.qtdBtnTexto, { color: colors.textPrimary }]}>＋</Text>
               </TouchableOpacity>
-
             </View>
             {qtd > maxQtd && (
               <Text style={[styles.erroTexto, { color: colors.riscoAlto }]}>
@@ -364,6 +368,7 @@ function Passo3({
   lote,
   quantidade,
   tipo,
+  salvando,
   onConfirmar,
   onVoltar,
 }: {
@@ -371,12 +376,12 @@ function Passo3({
   lote: Lote;
   quantidade: string;
   tipo: TipoBaixa;
+  salvando: boolean;
   onConfirmar: () => void;
   onVoltar: () => void;
 }) {
   const { colors } = useTheme();
   const isDescarte = tipo === 'descarte';
-
   const badgeBg = isDescarte ? colors.riscoAltoLight : colors.primaryLight;
   const badgeTexto = isDescarte ? colors.riscoAltoDark : colors.primaryDark;
 
@@ -384,18 +389,19 @@ function Passo3({
     <View style={styles.passoWrap}>
       <Text style={[styles.passoTitulo, { color: colors.textPrimary }]}>Tudo certo?</Text>
       <Text style={[styles.passoSub, { color: colors.textSecondary }]}>
-        Confirme os dados antes de registrar a{isDescarte ? ' ' : ' '}
-        {isDescarte ? 'descarte' : 'saída'}.
+        Confirme os dados antes de registrar a {isDescarte ? 'descarte' : 'saída'}.
       </Text>
 
       <View style={[styles.confirmarCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.confirmarHeader}>
-          <Text style={styles.confirmarEmoji}>{produto.emoji}</Text>
+          {produto.fotoUrl ? (
+            <Image source={{ uri: produto.fotoUrl }} style={styles.confirmarFoto} />
+          ) : (
+            <Text style={styles.confirmarEmoji}>{produto.emoji}</Text>
+          )}
           <View style={{ flex: 1 }}>
             <Text style={[styles.confirmarNome, { color: colors.textPrimary }]}>{produto.nome}</Text>
-            <Text style={[styles.confirmarSub, { color: colors.textSecondary }]}>
-              Lote {lote.codigo}
-            </Text>
+            <Text style={[styles.confirmarSub, { color: colors.textSecondary }]}>Lote {lote.codigo}</Text>
           </View>
           <View style={[styles.tipoBadge, { backgroundColor: badgeBg }]}>
             <Text style={[styles.tipoBadgeTexto, { color: badgeTexto }]}>
@@ -407,9 +413,9 @@ function Passo3({
         <View style={[styles.divider, { backgroundColor: colors.divider }]} />
 
         <View style={styles.confirmarLinhas}>
-          <ConfirmarLinha label="Quantidade" valor={`${quantidade}`} colors={colors} />
+          <ConfirmarLinha label="Quantidade" valor={quantidade} colors={colors} />
           <ConfirmarLinha label="Validade do lote" valor={formatarData(lote.validade)} colors={colors} />
-          <ConfirmarLinha label="Restará no lote" valor={`${lote.quantidade - Number(quantidade)}`} colors={colors} />
+          <ConfirmarLinha label="Restará no lote" valor={String(lote.quantidade - Number(quantidade))} colors={colors} />
           <ConfirmarLinha label="Data do registro" valor={new Date().toLocaleDateString('pt-BR')} colors={colors} />
         </View>
 
@@ -425,17 +431,26 @@ function Passo3({
       <View style={{ flex: 1 }} />
 
       <View style={styles.botoesRow}>
-        <TouchableOpacity style={[styles.voltarBtn, { borderColor: colors.border }]} onPress={onVoltar}>
+        <TouchableOpacity
+          style={[styles.voltarBtn, { borderColor: colors.border }]}
+          onPress={onVoltar}
+          disabled={salvando}
+        >
           <Text style={[styles.voltarTexto, { color: colors.textSecondary }]}>← Voltar</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.confirmarBtn, { backgroundColor: isDescarte ? colors.riscoAlto : colors.primary }]}
+          style={[styles.confirmarBtn, { backgroundColor: salvando ? colors.surfaceSecondary : isDescarte ? colors.riscoAlto : colors.primary }]}
           onPress={onConfirmar}
+          disabled={salvando}
           activeOpacity={0.85}
         >
-          <Text style={styles.confirmarBtnTexto}>
-            ✓  {isDescarte ? 'Confirmar descarte' : 'Confirmar saída'}
-          </Text>
+          {salvando ? (
+            <ActivityIndicator color={colors.primary} />
+          ) : (
+            <Text style={styles.confirmarBtnTexto}>
+              ✓  {isDescarte ? 'Confirmar descarte' : 'Confirmar saída'}
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -468,23 +483,17 @@ function Sucesso({
 }) {
   const { colors } = useTheme();
   const isDescarte = tipo === 'descarte';
-
   return (
     <View style={[styles.sucessoWrap, { backgroundColor: colors.background }]}>
-      <View style={[
-        styles.sucessoCirculo,
-        { backgroundColor: isDescarte ? colors.riscoAltoLight : colors.riscoSeguroLight },
-      ]}>
+      <View style={[styles.sucessoCirculo, { backgroundColor: isDescarte ? colors.riscoAltoLight : colors.riscoSeguroLight }]}>
         <Text style={styles.sucessoIcon}>{isDescarte ? '🗑️' : '✓'}</Text>
       </View>
       <Text style={[styles.sucessoTitulo, { color: colors.textPrimary }]}>
         {isDescarte ? 'Descarte registrado!' : 'Saída registrada!'}
       </Text>
       <Text style={[styles.sucessoSub, { color: colors.textSecondary }]}>
-        {quantidade} de {produto.nome}{' '}
-        {isDescarte ? 'foram descartados' : 'foram retirados'} do estoque.
+        {quantidade} de {produto.nome} {isDescarte ? 'foram descartados' : 'foram retirados'} do estoque.
       </Text>
-
       <TouchableOpacity
         style={[styles.novoBotao, { backgroundColor: colors.primary }]}
         onPress={onNovo}
@@ -492,11 +501,8 @@ function Sucesso({
       >
         <Text style={styles.novoBotaoTexto}>+ Registrar outra baixa</Text>
       </TouchableOpacity>
-
       <TouchableOpacity style={styles.voltarInicioBtn} onPress={onVoltar}>
-        <Text style={[styles.voltarInicioTexto, { color: colors.textSecondary }]}>
-          Voltar para o início
-        </Text>
+        <Text style={[styles.voltarInicioTexto, { color: colors.textSecondary }]}>Voltar para o início</Text>
       </TouchableOpacity>
     </View>
   );
@@ -508,19 +514,51 @@ export default function BaixaScreen() {
   const { colors } = useTheme();
   const [passo, setPasso] = useState(0);
   const [sucesso, setSucesso] = useState(false);
+  const [salvando, setSalvando] = useState(false);
 
+  const [produtos, setProdutos] = useState<Produto[]>([]);
   const [produto, setProduto] = useState<Produto | null>(null);
   const [lote, setLote] = useState<Lote | null>(null);
   const [quantidade, setQuantidade] = useState('1');
   const [tipo, setTipo] = useState<TipoBaixa>('saida');
 
+  useEffect(() => {
+    const unsub = subscribeToProdutos(setProdutos);
+    return unsub;
+  }, []);
+
   function resetar() {
     setPasso(0);
     setSucesso(false);
+    setSalvando(false);
     setProduto(null);
     setLote(null);
     setQuantidade('1');
     setTipo('saida');
+  }
+
+  async function handleConfirmar() {
+    if (!produto || !lote || salvando) return;
+    setSalvando(true);
+    try {
+      const qtd = Number(quantidade);
+      await ajustarQuantidadeLote(lote.id, -qtd);
+      await criarMovimentacao({
+        tipo,
+        produtoId: produto.id,
+        loteId: lote.id,
+        quantidade: qtd,
+      });
+      // Recalcula a média de consumo com base no histórico real
+      const novaMedia = await recalcularMediaConsumo(produto.id);
+      if (novaMedia !== null) {
+        await atualizarMediaConsumo(produto.id, novaMedia);
+      }
+      setSucesso(true);
+    } catch {
+      Alert.alert('Erro', 'Não foi possível registrar a baixa. Tente novamente.');
+      setSalvando(false);
+    }
   }
 
   if (sucesso && produto) {
@@ -545,10 +583,8 @@ export default function BaixaScreen() {
         {passo === 0 && (
           <Passo1
             selecionado={produto}
-            onSelecionar={(p) => {
-              setProduto(p);
-              setLote(null);
-            }}
+            produtos={produtos}
+            onSelecionar={(p) => { setProduto(p); setLote(null); }}
             onAvancar={() => produto && setPasso(1)}
           />
         )}
@@ -571,7 +607,8 @@ export default function BaixaScreen() {
             lote={lote}
             quantidade={quantidade}
             tipo={tipo}
-            onConfirmar={() => setSucesso(true)}
+            salvando={salvando}
+            onConfirmar={handleConfirmar}
             onVoltar={() => setPasso(1)}
           />
         )}
@@ -606,6 +643,7 @@ const styles = StyleSheet.create({
   },
   sugestaoItem: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
   sugestaoEmoji: { fontSize: 24 },
+  sugestaoFoto: { width: 36, height: 36, borderRadius: 8 },
   sugestaoNome: { fontSize: 16, fontWeight: '600' },
   sugestaoSub: { fontSize: 13 },
 
@@ -614,6 +652,7 @@ const styles = StyleSheet.create({
     padding: 16, borderRadius: 14, borderWidth: 2,
   },
   selecionadoEmoji: { fontSize: 30 },
+  selecionadoFoto: { width: 40, height: 40, borderRadius: 10 },
   selecionadoNome: { fontSize: 17, fontWeight: '700' },
   selecionadoSub: { fontSize: 14, fontWeight: '600' },
   trocar: { fontSize: 14, fontWeight: '600' },
@@ -622,21 +661,16 @@ const styles = StyleSheet.create({
   avancarBtnFlex: { flex: 2, borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
   avancarTexto: { fontSize: 17, fontWeight: '700' },
 
-  produtoResumo: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    padding: 14, borderRadius: 14,
-  },
+  produtoResumo: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14 },
   produtoEmoji: { fontSize: 28 },
+  produtoFoto: { width: 40, height: 40, borderRadius: 10 },
   produtoNome: { fontSize: 18, fontWeight: '700' },
 
   campoWrap: { gap: 8 },
   campoLabel: { fontSize: 14, fontWeight: '700', letterSpacing: 0.3 },
 
   tipoRow: { flexDirection: 'row', gap: 12 },
-  tipoCard: {
-    flex: 1, borderRadius: 14, borderWidth: 1.5,
-    padding: 16, alignItems: 'center', gap: 4,
-  },
+  tipoCard: { flex: 1, borderRadius: 14, borderWidth: 1.5, padding: 16, alignItems: 'center', gap: 4 },
   tipoEmoji: { fontSize: 28 },
   tipoLabel: { fontSize: 16, fontWeight: '700' },
   tipoSub: { fontSize: 12, textAlign: 'center' },
@@ -645,8 +679,7 @@ const styles = StyleSheet.create({
   lotesDica: { fontSize: 12 },
   lotesLista: { gap: 10 },
   loteItem: {
-    borderRadius: 14, borderWidth: 1, borderLeftWidth: 4,
-    padding: 14, gap: 6,
+    borderRadius: 14, borderWidth: 1, borderLeftWidth: 4, padding: 14, gap: 6,
     ...Platform.select({
       ios: { shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
       android: { elevation: 1 },
@@ -658,23 +691,14 @@ const styles = StyleSheet.create({
   loteDetalhe: { fontSize: 14 },
   loteSelecionadoTag: { fontSize: 13, fontWeight: '700' },
 
-  semLote: {
-    borderRadius: 14, borderWidth: 1, padding: 24,
-    alignItems: 'center', gap: 8,
-  },
+  semLote: { borderRadius: 14, borderWidth: 1, padding: 24, alignItems: 'center', gap: 8 },
   semLoteEmoji: { fontSize: 32 },
   semLoteTexto: { fontSize: 15, textAlign: 'center' },
 
   qtdRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  qtdBtn: {
-    width: 52, height: 52, borderRadius: 14, borderWidth: 1,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  qtdBtn: { width: 52, height: 52, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   qtdBtnTexto: { fontSize: 24, fontWeight: '500', lineHeight: 28 },
-  qtdInput: {
-    flex: 1, height: 52, borderRadius: 14, borderWidth: 1,
-    fontSize: 22, fontWeight: '700',
-  },
+  qtdInput: { flex: 1, height: 52, borderRadius: 14, borderWidth: 1, fontSize: 22, fontWeight: '700' },
   erroTexto: { fontSize: 13, fontWeight: '600' },
 
   botoesRow: { flexDirection: 'row', gap: 12 },
@@ -690,6 +714,7 @@ const styles = StyleSheet.create({
   },
   confirmarHeader: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 20 },
   confirmarEmoji: { fontSize: 36 },
+  confirmarFoto: { width: 52, height: 52, borderRadius: 14 },
   confirmarNome: { fontSize: 19, fontWeight: '800' },
   confirmarSub: { fontSize: 14 },
   tipoBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
@@ -704,21 +729,12 @@ const styles = StyleSheet.create({
   confirmarBtn: { flex: 2, borderRadius: 16, paddingVertical: 18, alignItems: 'center' },
   confirmarBtnTexto: { color: '#FFF', fontSize: 17, fontWeight: '700' },
 
-  sucessoWrap: {
-    flex: 1, alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: 32, gap: 16,
-  },
-  sucessoCirculo: {
-    width: 100, height: 100, borderRadius: 50,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 8,
-  },
+  sucessoWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 16 },
+  sucessoCirculo: { width: 100, height: 100, borderRadius: 50, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   sucessoIcon: { fontSize: 48 },
   sucessoTitulo: { fontSize: 28, fontWeight: '800', textAlign: 'center' },
   sucessoSub: { fontSize: 17, textAlign: 'center', lineHeight: 24 },
-  novoBotao: {
-    borderRadius: 18, paddingVertical: 18, paddingHorizontal: 32,
-    marginTop: 8, alignSelf: 'stretch', alignItems: 'center',
-  },
+  novoBotao: { borderRadius: 18, paddingVertical: 18, paddingHorizontal: 32, marginTop: 8, alignSelf: 'stretch', alignItems: 'center' },
   novoBotaoTexto: { color: '#FFF', fontSize: 17, fontWeight: '700' },
   voltarInicioBtn: { paddingVertical: 12 },
   voltarInicioTexto: { fontSize: 16, fontWeight: '600' },

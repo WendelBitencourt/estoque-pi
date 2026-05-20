@@ -1,8 +1,10 @@
 import {
   collection,
   addDoc,
+  getDocs,
   onSnapshot,
   query,
+  where,
   orderBy,
   Timestamp,
   DocumentSnapshot,
@@ -36,6 +38,49 @@ export function subscribeToMovimentacoes(
     (snap) => callback(snap.docs.map(docToMovimentacao)),
     onError
   );
+}
+
+/**
+ * Calcula quantos dias o estoque desse produto costuma durar,
+ * com base no histórico real de saídas e descartes.
+ * Retorna null se não houver dados suficientes (< 2 saídas).
+ */
+export async function recalcularMediaConsumo(produtoId: string): Promise<number | null> {
+  const qSaidas = query(
+    collection(db, COL),
+    where('produtoId', '==', produtoId),
+    where('tipo', 'in', ['saida', 'descarte']),
+    orderBy('data', 'asc')
+  );
+  const snapSaidas = await getDocs(qSaidas);
+  if (snapSaidas.size < 2) return null;
+
+  const saidas = snapSaidas.docs.map((d) => ({
+    data: (d.data().data as Timestamp).toDate(),
+    quantidade: d.data().quantidade as number,
+  }));
+
+  const primeira = saidas[0].data;
+  const ultima = saidas[saidas.length - 1].data;
+  const diasSpan = Math.max(1, (ultima.getTime() - primeira.getTime()) / 86_400_000);
+  const totalConsumido = saidas.reduce((acc, m) => acc + m.quantidade, 0);
+  const taxaDiaria = totalConsumido / diasSpan;
+
+  // Usa média das entradas como referência de tamanho de lote
+  const qEntradas = query(
+    collection(db, COL),
+    where('produtoId', '==', produtoId),
+    where('tipo', '==', 'entrada')
+  );
+  const snapEntradas = await getDocs(qEntradas);
+  let mediaEntrada = 20;
+  if (!snapEntradas.empty) {
+    const total = snapEntradas.docs.reduce((acc, d) => acc + (d.data().quantidade as number), 0);
+    mediaEntrada = total / snapEntradas.size;
+  }
+
+  const media = Math.round(mediaEntrada / taxaDiaria);
+  return Math.max(1, Math.min(365, media));
 }
 
 export async function criarMovimentacao(dados: {

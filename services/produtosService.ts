@@ -4,6 +4,7 @@ import {
   addDoc,
   getDoc,
   getDocs,
+  updateDoc,
   onSnapshot,
   query,
   orderBy,
@@ -86,4 +87,8 @@ export async function getProdutoPorEan(ean: string): Promise<Produto | null> {
   const snap = await getDocs(q);
   if (snap.empty) return null;
   return docToProduto(snap.docs[0]);
+}
+
+export async function atualizarMediaConsumo(produtoId: string, mediaConsumoDias: number): Promise<void> {
+  await updateDoc(doc(db, COL, produtoId), { mediaConsumoDias });
 }
