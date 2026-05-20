@@ -57,6 +57,15 @@ export function subscribeLotesByProduto(
   );
 }
 
+/** Todos os lotes sem filtro de quantidade — usado no histórico. */
+export function subscribeAllLotesRaw(
+  callback: (lotes: Lote[]) => void,
+  onError?: (err: Error) => void
+): () => void {
+  const q = query(collection(db, COL), orderBy('validade'));
+  return onSnapshot(q, (snap) => callback(snap.docs.map(docToLote)), onError);
+}
+
 /** Todos os lotes com quantidade > 0 — usado nas telas de estoque e início. */
 export function subscribeAllLotes(
   callback: (lotes: Lote[]) => void,

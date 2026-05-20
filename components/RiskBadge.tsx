@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../theme';
-import { NivelRisco } from '../data/lotes';
+import { NivelRisco } from '../services/tipos';
 
 interface Props {
   risco: NivelRisco;

@@ -29,9 +29,7 @@ import { BarcodeScanner } from '../../components/BarcodeScanner';
 const CATEGORIAS: { valor: Categoria; label: string; emoji: string }[] = [
   { valor: 'alimentos', label: 'Alimentos', emoji: '🥛' },
   { valor: 'higiene', label: 'Higiene', emoji: '🧴' },
-  { valor: 'bebe', label: 'Bebê', emoji: '👶' },
   { valor: 'limpeza', label: 'Limpeza', emoji: '🫧' },
-  { valor: 'vestuario', label: 'Vestuário', emoji: '👕' },
 ];
 
 // ── tela ─────────────────────────────────────────────────────────────────────

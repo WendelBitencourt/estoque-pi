@@ -25,18 +25,14 @@ export type StatusBusca =
 export const EMOJI_POR_CATEGORIA: Record<Categoria, string> = {
   alimentos: '🍎',
   higiene:   '🧴',
-  bebe:      '👶',
   limpeza:   '🧹',
-  vestuario: '👕',
 };
 
 // ── Mapeamento de categorias das APIs → Categoria do app ──────────────────────
 
 const MAPA_CATEGORIAS: { regex: RegExp; categoria: Categoria }[] = [
-  { regex: /beb[eê]|fralda|mamad|chupetr|infantil/i,                 categoria: 'bebe'      },
-  { regex: /higiene|sabonete|shampoo|condicion|dental|desodoran|absorv/i, categoria: 'higiene'   },
+  { regex: /higiene|sabonete|shampoo|condicion|dental|desodoran|absorv|fralda|beb[eê]|infantil/i, categoria: 'higiene' },
   { regex: /limpeza|deterg|desinfet|alvejante|multiuso|amaciante|sabão|sabao/i, categoria: 'limpeza' },
-  { regex: /vestu[aá]rio|roupa|tecido|camisa|cal[cç]a|vestido/i,     categoria: 'vestuario' },
 ];
 
 function mapearCategoria(tags: string[]): Categoria {

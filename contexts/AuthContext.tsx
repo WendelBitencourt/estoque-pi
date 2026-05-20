@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '../services/firebase';
-import { seedDadosIniciais } from '../services/seed';
 
 interface AuthContextData {
   user: User | null;
@@ -17,11 +16,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
-
-      if (firebaseUser) {
-        // Popula dados de exemplo na primeira vez (não bloqueia a UI)
-        seedDadosIniciais().catch(() => {});
-      }
 
       setLoading(false);
     });
