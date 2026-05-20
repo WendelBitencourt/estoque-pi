@@ -19,7 +19,7 @@ import { subscribeToProdutos } from '../../services/produtosService';
 import { subscribeAllLotes } from '../../services/lotesService';
 import { getRiscoProduto, diasParaVencer } from '../../services/risco';
 
-type FiltroRisco = 'todos' | 'risco_alto' | 'atencao';
+type FiltroRisco = 'todos' | 'risco_alto' | 'atencao' | 'seguro';
 type FiltroCategoria = Categoria | null;
 
 const CATEGORIAS: { valor: Categoria; label: string; emoji: string }[] = [
@@ -88,23 +88,27 @@ export default function EstoqueScreen() {
   }, []);
 
   const todosItens = useMemo<ItemInfo[]>(() => {
-    return produtos.map((p) => {
-      const ls = lotes.filter((l) => l.produtoId === p.id);
-      const pior = ls[0]; // já ordenados por validade
-      return {
-        produto: p,
-        risco: ls.length > 0 ? getRiscoProduto(ls) : 'seguro',
-        total: ls.reduce((s, l) => s + l.quantidade, 0),
-        proximaValidade: pior?.validade ?? '',
-        dias: pior ? diasParaVencer(pior.validade) : 9999,
-        codigoLote: pior?.codigo ?? '—',
-      };
-    });
+    return produtos
+      .map((p) => {
+        const ls = lotes.filter((l) => l.produtoId === p.id);
+        const pior = ls[0];
+        return {
+          produto: p,
+          risco: ls.length > 0 ? getRiscoProduto(ls) : 'seguro',
+          total: ls.reduce((s, l) => s + l.quantidade, 0),
+          proximaValidade: pior?.validade ?? '',
+          dias: pior ? diasParaVencer(pior.validade) : 9999,
+          codigoLote: pior?.codigo ?? '—',
+        };
+      })
+      .filter((item) => item.total > 0); // só exibe produtos com doações registradas
   }, [produtos, lotes]);
 
   const itensFiltrados = useMemo(() => todosItens.filter((item) => {
     const matchBusca = item.produto.nome.toLowerCase().includes(busca.toLowerCase().trim());
-    const matchRisco = filtroRisco === 'todos' || item.risco === filtroRisco;
+    const matchRisco =
+      filtroRisco === 'todos' ||
+      item.risco === filtroRisco;
     const matchCategoria = filtroCategoria === null || item.produto.categoria === filtroCategoria;
     return matchBusca && matchRisco && matchCategoria;
   }), [todosItens, busca, filtroRisco, filtroCategoria]);
@@ -119,9 +123,10 @@ export default function EstoqueScreen() {
   }, [itensFiltrados]);
 
   const chipRisco: { valor: FiltroRisco; label: string; emoji: string }[] = [
-    { valor: 'todos', label: 'Todos', emoji: '📦' },
+    { valor: 'todos',     label: 'Todos',     emoji: '📦' },
     { valor: 'risco_alto', label: 'Risco alto', emoji: '🔴' },
-    { valor: 'atencao', label: 'Atenção', emoji: '🟡' },
+    { valor: 'atencao',   label: 'Atenção',   emoji: '🟡' },
+    { valor: 'seguro',    label: 'Seguro',    emoji: '🟢' },
   ];
 
   return (
@@ -149,12 +154,12 @@ export default function EstoqueScreen() {
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
           {chipRisco.map((c) => {
-            const ativo = filtroRisco === c.valor && filtroCategoria === null;
+            const ativo = filtroRisco === c.valor;
             return (
               <TouchableOpacity
                 key={c.valor}
                 style={[styles.chip, { backgroundColor: ativo ? colors.primary : colors.surface, borderColor: ativo ? colors.primary : colors.border }]}
-                onPress={() => { setFiltroRisco(c.valor); setFiltroCategoria(null); }}
+                onPress={() => setFiltroRisco(c.valor)}
               >
                 <Text style={styles.chipEmoji}>{c.emoji}</Text>
                 <Text style={[styles.chipLabel, { color: ativo ? '#FFFFFF' : colors.textSecondary }]}>{c.label}</Text>
@@ -180,9 +185,11 @@ export default function EstoqueScreen() {
 
       {secoes.length === 0 ? (
         <View style={styles.vazioWrap}>
-          <Text style={styles.vazioEmoji}>{produtos.length === 0 ? '📦' : '🔍'}</Text>
+          <Text style={styles.vazioEmoji}>{lotes.length === 0 ? '📦' : '🔍'}</Text>
           <Text style={[styles.vazioTexto, { color: colors.textSecondary }]}>
-            {produtos.length === 0 ? 'Nenhum produto cadastrado.' : 'Nenhum produto encontrado.'}
+            {lotes.length === 0
+              ? 'Nenhuma doação registrada ainda.'
+              : 'Nenhum item encontrado para esse filtro.'}
           </Text>
         </View>
       ) : (
@@ -205,11 +212,6 @@ export default function EstoqueScreen() {
         />
       )}
 
-      <View style={[styles.fabWrap, { backgroundColor: colors.background }]}>
-        <TouchableOpacity style={[styles.fab, { backgroundColor: colors.primary }]} onPress={() => router.push('/cadastro')} activeOpacity={0.85}>
-          <Text style={styles.fabTexto}>＋  Novo produto</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
@@ -254,8 +256,4 @@ const styles = StyleSheet.create({
   vazioWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   vazioEmoji: { fontSize: 40 },
   vazioTexto: { fontSize: 16 },
-
-  fabWrap: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 20, paddingBottom: 20, paddingTop: 12 },
-  fab: { borderRadius: 18, paddingVertical: 18, alignItems: 'center' },
-  fabTexto: { color: '#FFFFFF', fontSize: 17, fontWeight: '700', letterSpacing: 0.2 },
 });
