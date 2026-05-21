@@ -21,7 +21,7 @@ export interface Lote {
   codigo: string;
   quantidade: number;
   validade: string;    // ISO date "YYYY-MM-DD"
-  risco: NivelRisco;
+  risco: NivelRisco | null; // null quando criado offline (classificação pendente)
   dataCadastro: string; // ISO date "YYYY-MM-DD"
 }
 

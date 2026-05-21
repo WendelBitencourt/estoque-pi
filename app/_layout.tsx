@@ -3,9 +3,65 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View, ActivityIndicator } from 'react-native';
 import { useEffect } from 'react';
+import NetInfo from '@react-native-community/netinfo';
 import { ThemeProvider, useTheme } from '../theme';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { OfflineBar } from '../components/OfflineBar';
+import { getLotesSemRisco, atualizarRiscoLote } from '../services/lotesService';
+import { getProdutoById } from '../services/produtosService';
+import { classificarRiscoML } from '../services/mlService';
+import { diasParaVencer } from '../services/risco';
+
+/**
+ * Roda em background e reclassifica lotes que foram salvos sem `risco`
+ * (criados enquanto o app estava sem internet).
+ * Dispara ao montar (se já online) e toda vez que a conexão for restaurada.
+ */
+function ReclassificadorOffline() {
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (!user) return;
+
+    let emExecucao = false;
+
+    async function reclassificar() {
+      if (emExecucao) return;
+      emExecucao = true;
+      try {
+        const estado = await NetInfo.fetch();
+        if (!estado.isConnected || !estado.isInternetReachable) return;
+
+        const pendentes = await getLotesSemRisco();
+        for (const lote of pendentes) {
+          try {
+            const produto = await getProdutoById(lote.produtoId);
+            if (!produto) continue;
+            const dias = diasParaVencer(lote.validade);
+            const risco = await classificarRiscoML(dias, produto.mediaConsumoDias, lote.quantidade);
+            await atualizarRiscoLote(lote.id, risco);
+          } catch {
+            // Ignora erros individuais — tenta de novo na próxima chamada
+          }
+        }
+      } finally {
+        emExecucao = false;
+      }
+    }
+
+    // Tenta ao montar (cobre lotes pendentes de sessões anteriores offline)
+    reclassificar();
+
+    // Re-tenta sempre que a conectividade for restaurada
+    const unsubNetInfo = NetInfo.addEventListener((estado) => {
+      if (estado.isConnected && estado.isInternetReachable) reclassificar();
+    });
+
+    return () => unsubNetInfo();
+  }, [user]);
+
+  return null;
+}
 
 function AuthGate() {
   const { user, loading } = useAuth();
@@ -38,6 +94,7 @@ function RootNavigator() {
     <View style={{ flex: 1 }}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <AuthGate />
+      <ReclassificadorOffline />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="login" />
         <Stack.Screen name="(tabs)" />

@@ -43,17 +43,20 @@ function LoteCard({ lote, mediaConsumoDias }: { lote: Lote; mediaConsumoDias: nu
   const bordaEsquerda =
     lote.risco === 'risco_alto' ? colors.riscoAlto
     : lote.risco === 'atencao' ? colors.riscoAtencao
-    : colors.riscoSeguro;
+    : lote.risco === 'seguro' ? colors.riscoSeguro
+    : colors.border; // null (pendente offline)
 
   const corML =
     lote.risco === 'risco_alto' ? colors.riscoAltoDark
     : lote.risco === 'atencao' ? colors.riscoAtencaoDark
-    : colors.riscoSeguroDark;
+    : lote.risco === 'seguro' ? colors.riscoSeguroDark
+    : colors.textDisabled; // null
 
   const bgML =
     lote.risco === 'risco_alto' ? colors.riscoAltoLight
     : lote.risco === 'atencao' ? colors.riscoAtencaoLight
-    : colors.riscoSeguroLight;
+    : lote.risco === 'seguro' ? colors.riscoSeguroLight
+    : colors.surfaceSecondary; // null
 
   return (
     <View style={[styles.loteCard, { backgroundColor: colors.surface, borderColor: colors.border, borderLeftColor: bordaEsquerda }]}>
@@ -83,7 +86,9 @@ function LoteCard({ lote, mediaConsumoDias }: { lote: Lote; mediaConsumoDias: nu
       {/* Explicação da classificação pelo ML */}
       <View style={[styles.mlRow, { backgroundColor: bgML }]}>
         <Text style={[styles.mlTexto, { color: corML }]}>
-          🧠 {dias}d restantes · consumo médio {mediaConsumoDias}d → {CLASSE_LABEL[lote.risco]}
+          {lote.risco === null
+            ? '🧠 Calculando risco — aguardando conexão com a internet…'
+            : `🧠 ${dias}d restantes · consumo médio ${mediaConsumoDias}d → ${CLASSE_LABEL[lote.risco]}`}
         </Text>
       </View>
     </View>

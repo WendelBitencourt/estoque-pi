@@ -3,14 +3,23 @@ import { useTheme } from '../theme';
 import { NivelRisco } from '../services/tipos';
 
 interface Props {
-  risco: NivelRisco;
+  risco: NivelRisco | null;
   diasParaVencer?: number;
 }
 
 export function RiskBadge({ risco, diasParaVencer }: Props) {
   const { colors } = useTheme();
 
-  const config = {
+  // Lote criado offline — ainda sem classificação do modelo
+  if (risco === null) {
+    return (
+      <View style={[styles.badge, { backgroundColor: colors.surfaceSecondary }]}>
+        <Text style={[styles.label, { color: colors.textDisabled }]}>Calculando…</Text>
+      </View>
+    );
+  }
+
+  const config: Record<NivelRisco, { label: string; bg: string; text: string }> = {
     risco_alto: {
       label: diasParaVencer !== undefined ? `Vence em ${diasParaVencer}d` : 'Risco alto',
       bg: colors.riscoAltoLight,
@@ -28,7 +37,7 @@ export function RiskBadge({ risco, diasParaVencer }: Props) {
     },
   };
 
-  const { label, bg, text } = config[risco] ?? config.seguro;
+  const { label, bg, text } = config[risco];
 
   return (
     <View style={[styles.badge, { backgroundColor: bg }]}>

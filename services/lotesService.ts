@@ -3,6 +3,7 @@ import {
   doc,
   addDoc,
   getDoc,
+  getDocs,
   onSnapshot,
   query,
   where,
@@ -12,8 +13,9 @@ import {
   Timestamp,
   DocumentSnapshot,
 } from 'firebase/firestore';
+import NetInfo from '@react-native-community/netinfo';
 import { db } from './firebase';
-import { Lote } from './tipos';
+import { Lote, NivelRisco } from './tipos';
 import { calcularRisco, diasParaVencer, gerarCodigoLote } from './risco';
 import { classificarRiscoML } from './mlService';
 
@@ -31,7 +33,7 @@ function docToLote(d: DocumentSnapshot): Lote {
     codigo: data.codigo,
     quantidade: data.quantidade,
     validade: tsToISO(data.validade),
-    risco: data.risco ?? 'seguro',
+    risco: (data.risco as NivelRisco) ?? null, // null = classificação offline pendente
     dataCadastro: tsToISO(data.dataEntrada),
   };
 }
@@ -98,24 +100,47 @@ export async function criarLote(dados: {
   const [d, m, y] = dados.validade.split('/');
   const validadeISO = `${y}-${m}-${d}`;
   const dias = diasParaVencer(validadeISO);
-  let risco = calcularRisco(validadeISO);
-  try {
-    risco = await classificarRiscoML(dias, dados.mediaConsumoDias, dados.quantidade);
-  } catch {
-    // ML offline — mantém classificação por regra
-  }
   const validadeDate = new Date(`${validadeISO}T12:00:00`);
+
+  // Verifica conectividade antes de chamar o ML
+  const netState = await NetInfo.fetch();
+  const temInternet = !!(netState.isConnected && netState.isInternetReachable);
+
+  let risco: NivelRisco | null = null;
+
+  if (temInternet) {
+    try {
+      risco = await classificarRiscoML(dias, dados.mediaConsumoDias, dados.quantidade);
+    } catch {
+      // Internet disponível mas ML falhou (ex: Space hibernando) — usa regra como fallback
+      risco = calcularRisco(validadeISO);
+    }
+  }
+  // Sem internet: risco fica null — será preenchido pelo ReclassificadorOffline
+  // quando a conexão for restaurada
 
   const ref = await addDoc(collection(db, COL), {
     produtoId: dados.produtoId,
     codigo: gerarCodigoLote(dados.nomeProduto),
     quantidade: dados.quantidade,
     validade: Timestamp.fromDate(validadeDate),
-    risco,
+    risco,          // null se offline
     dataEntrada: Timestamp.now(),
   });
 
   return ref.id;
+}
+
+/** Retorna todos os lotes que ainda não têm classificação de risco (criados offline). */
+export async function getLotesSemRisco(): Promise<Lote[]> {
+  const q = query(collection(db, COL), where('risco', '==', null));
+  const snap = await getDocs(q);
+  return snap.docs.map(docToLote);
+}
+
+/** Atualiza o campo risco de um lote já salvo no Firestore. */
+export async function atualizarRiscoLote(loteId: string, risco: NivelRisco): Promise<void> {
+  await updateDoc(doc(db, COL, loteId), { risco });
 }
 
 /** Usa increment() atômico do Firestore — seguro em operações concorrentes. */

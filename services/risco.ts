@@ -33,7 +33,7 @@ export function gerarCodigoLote(nomeProduto: string): string {
   return `${iniciais}${ano}${rand}`;
 }
 
-export function getRiscoProduto(lotes: Array<{ risco: NivelRisco }>): NivelRisco {
+export function getRiscoProduto(lotes: Array<{ risco: NivelRisco | null }>): NivelRisco {
   if (lotes.some((l) => l.risco === 'risco_alto')) return 'risco_alto';
   if (lotes.some((l) => l.risco === 'atencao')) return 'atencao';
   return 'seguro';
