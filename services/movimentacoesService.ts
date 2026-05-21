@@ -49,16 +49,17 @@ export async function recalcularMediaConsumo(produtoId: string): Promise<number 
   const qSaidas = query(
     collection(db, COL),
     where('produtoId', '==', produtoId),
-    where('tipo', 'in', ['saida', 'descarte']),
-    orderBy('data', 'asc')
+    where('tipo', 'in', ['saida', 'descarte'])
   );
   const snapSaidas = await getDocs(qSaidas);
   if (snapSaidas.size < 2) return null;
 
-  const saidas = snapSaidas.docs.map((d) => ({
-    data: (d.data().data as Timestamp).toDate(),
-    quantidade: d.data().quantidade as number,
-  }));
+  const saidas = snapSaidas.docs
+    .map((d) => ({
+      data: (d.data().data as Timestamp).toDate(),
+      quantidade: d.data().quantidade as number,
+    }))
+    .sort((a, b) => a.data.getTime() - b.data.getTime());
 
   const primeira = saidas[0].data;
   const ultima = saidas[saidas.length - 1].data;
@@ -81,6 +82,58 @@ export async function recalcularMediaConsumo(produtoId: string): Promise<number 
 
   const media = Math.round(mediaEntrada / taxaDiaria);
   return Math.max(1, Math.min(365, media));
+}
+
+/**
+ * Agrega todas as entradas do Firestore por (ano, mês, categoria).
+ * Faz join com a coleção produtos para obter a categoria de cada produtoId.
+ * Retorna o formato esperado pelo endpoint /agrupar-doacoes da API de ML.
+ */
+export async function getEntradasMensais(): Promise<
+  { ano: number; mes: number; categoria: string; totalUnid: number }[]
+> {
+  // Busca todos os produtos para montar o mapa produtoId → categoria
+  const produtosSnap = await getDocs(collection(db, 'produtos'));
+  const categoriaPorId: Record<string, string> = {};
+  produtosSnap.docs.forEach((d) => {
+    categoriaPorId[d.id] = d.data().categoria as string;
+  });
+
+  const q = query(collection(db, COL), where('tipo', '==', 'entrada'));
+  const snap = await getDocs(q);
+
+  // Agrega por "ano-mes-categoria"
+  const mapa: Record<string, number> = {};
+  snap.docs.forEach((d) => {
+    const data = d.data();
+    const categoria = categoriaPorId[data.produtoId as string];
+    if (!categoria) return;
+    const dt = (data.data as Timestamp).toDate();
+    const key = `${dt.getFullYear()}-${dt.getMonth() + 1}-${categoria}`;
+    mapa[key] = (mapa[key] ?? 0) + (data.quantidade as number);
+  });
+
+  return Object.entries(mapa).map(([key, totalUnid]) => {
+    const [ano, mes, categoria] = key.split('-');
+    return { ano: Number(ano), mes: Number(mes), categoria, totalUnid };
+  });
+}
+
+export async function getSaidasProduto(
+  produtoId: string
+): Promise<{ data: string; quantidade: number }[]> {
+  const q = query(
+    collection(db, COL),
+    where('produtoId', '==', produtoId),
+    where('tipo', 'in', ['saida', 'descarte'])
+  );
+  const snap = await getDocs(q);
+  return snap.docs
+    .map((d) => ({
+      data: (d.data().data as Timestamp).toDate().toISOString().split('T')[0],
+      quantidade: d.data().quantidade as number,
+    }))
+    .sort((a, b) => a.data.localeCompare(b.data));
 }
 
 export async function criarMovimentacao(dados: {

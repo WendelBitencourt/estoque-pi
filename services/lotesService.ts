@@ -46,13 +46,15 @@ export function subscribeLotesByProduto(
 ): () => void {
   const q = query(
     collection(db, COL),
-    where('produtoId', '==', produtoId),
-    orderBy('validade')
+    where('produtoId', '==', produtoId)
   );
   return onSnapshot(
     q,
     (snap) => {
-      const lotes = snap.docs.map(docToLote).filter((l) => l.quantidade > 0);
+      const lotes = snap.docs
+        .map(docToLote)
+        .filter((l) => l.quantidade > 0)
+        .sort((a, b) => a.validade.localeCompare(b.validade));
       callback(lotes);
     },
     onError

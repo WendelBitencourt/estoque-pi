@@ -9,15 +9,21 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../theme';
 import { sairDaConta } from '../../services/authService';
+import {
+  carregarConfig,
+  salvarConfig,
+  pedirPermissao,
+  agendarResumoDiario,
+  cancelarResumoDiario,
+} from '../../services/notificacoesService';
 
 // ── tipos locais ─────────────────────────────────────────────────────────────
 
 type ThemeMode = 'auto' | 'light' | 'dark';
-type DiasAntecedencia = 7 | 15 | 30;
 type DiasRiscoAlto = 3 | 7 | 10;
 type DiasAtencao = 15 | 30 | 45;
 
@@ -189,9 +195,58 @@ export default function ConfiguracoesScreen() {
   }
 
   // Notificações
-  const [alertasValidade, setAlertasValidade] = useState(true);
+  const [alertaEstoqueZerado, setAlertaEstoqueZerado] = useState(true);
   const [notifDiarias, setNotifDiarias] = useState(false);
-  const [diasAntecedencia, setDiasAntecedencia] = useState<DiasAntecedencia>(7);
+  const [horaResumo, setHoraResumo] = useState(8);
+
+  useEffect(() => {
+    carregarConfig().then((c) => {
+      setAlertaEstoqueZerado(c.alertaEstoqueZerado);
+      setNotifDiarias(c.resumoDiario);
+      setHoraResumo(c.horaResumo);
+    });
+  }, []);
+
+  async function handleNotifDiarias(ativar: boolean) {
+    if (ativar) {
+      const ok = await pedirPermissao();
+      if (!ok) {
+        Alert.alert(
+          'Permissão negada',
+          'Para receber notificações, acesse as Configurações do seu celular e habilite as notificações para este app.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      await agendarResumoDiario(horaResumo);
+    } else {
+      await cancelarResumoDiario();
+    }
+    setNotifDiarias(ativar);
+    await salvarConfig({ resumoDiario: ativar, horaResumo, alertaEstoqueZerado });
+  }
+
+  async function handleHoraResumo(hora: number) {
+    setHoraResumo(hora);
+    if (notifDiarias) await agendarResumoDiario(hora);
+    await salvarConfig({ resumoDiario: notifDiarias, horaResumo: hora, alertaEstoqueZerado });
+  }
+
+  async function handleAlertaEstoqueZerado(ativar: boolean) {
+    if (ativar) {
+      const ok = await pedirPermissao();
+      if (!ok) {
+        Alert.alert(
+          'Permissão negada',
+          'Para receber alertas, acesse as Configurações do seu celular e habilite as notificações para este app.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+    }
+    setAlertaEstoqueZerado(ativar);
+    await salvarConfig({ resumoDiario: notifDiarias, horaResumo, alertaEstoqueZerado: ativar });
+  }
 
   // Estoque
   const [diasRiscoAlto, setDiasRiscoAlto] = useState<DiasRiscoAlto>(7);
@@ -238,27 +293,29 @@ export default function ConfiguracoesScreen() {
         <SecaoHeader titulo="NOTIFICAÇÕES" emoji="🔔" />
         <Cartao>
           <ItemToggle
-            label="Alertas de validade próxima"
-            descricao="Avisa quando um produto está prestes a vencer"
-            valor={alertasValidade}
-            onChange={setAlertasValidade}
+            label="Alerta de estoque zerado"
+            descricao="Avisa imediatamente quando um produto chega a zero"
+            valor={alertaEstoqueZerado}
+            onChange={handleAlertaEstoqueZerado}
           />
           <ItemToggle
             label="Resumo diário"
             descricao="Notificação toda manhã com o resumo do estoque"
             valor={notifDiarias}
-            onChange={setNotifDiarias}
+            onChange={handleNotifDiarias}
           />
-          {alertasValidade && (
+          {notifDiarias && (
             <SeletorOpcoes
-              label="Avisar com quantos dias de antecedência?"
+              label="Horário do resumo diário"
               opcoes={[
-                { valor: 7 as DiasAntecedencia, label: '7 dias' },
-                { valor: 15 as DiasAntecedencia, label: '15 dias' },
-                { valor: 30 as DiasAntecedencia, label: '30 dias' },
+                { valor: 6, label: '6h' },
+                { valor: 7, label: '7h' },
+                { valor: 8, label: '8h' },
+                { valor: 9, label: '9h' },
+                { valor: 10, label: '10h' },
               ]}
-              selecionado={diasAntecedencia}
-              onSelecionar={setDiasAntecedencia}
+              selecionado={horaResumo}
+              onSelecionar={handleHoraResumo}
             />
           )}
         </Cartao>

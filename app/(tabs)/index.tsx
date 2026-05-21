@@ -16,6 +16,8 @@ import { Produto, Lote } from '../../services/tipos';
 import { subscribeToProdutos } from '../../services/produtosService';
 import { subscribeAllLotes } from '../../services/lotesService';
 import { getRiscoProduto, diasParaVencer } from '../../services/risco';
+import { getSaidasProduto } from '../../services/movimentacoesService';
+import { preverFimEstoque } from '../../services/mlService';
 
 function getSaudacao() {
   const h = new Date().getHours();
@@ -52,6 +54,7 @@ export default function InicioScreen() {
   const { colors } = useTheme();
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [lotes, setLotes]       = useState<Lote[]>([]);
+  const [previsoes, setPrevisoes] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const u1 = subscribeToProdutos(setProdutos);
@@ -100,6 +103,25 @@ export default function InicioScreen() {
         };
       }),
   [produtos, lotes]);
+
+  const atencaoKey = useMemo(
+    () => produtosAtencao.map((x) => `${x.produto.id}:${x.total}`).join(','),
+    [produtosAtencao]
+  );
+
+  useEffect(() => {
+    if (produtosAtencao.length === 0) return;
+    produtosAtencao.forEach(({ produto, total }) => {
+      getSaidasProduto(produto.id)
+        .then((saidas) => preverFimEstoque(saidas, total))
+        .then((p) => {
+          if (p.suficiente && p.diasRestantes !== null) {
+            setPrevisoes((prev) => ({ ...prev, [produto.id]: p.diasRestantes! }));
+          }
+        })
+        .catch(() => {});
+    });
+  }, [atencaoKey]);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
@@ -206,7 +228,9 @@ export default function InicioScreen() {
                 </View>
                 <View style={styles.itemInfo}>
                   <Text style={[styles.itemNome, { color: colors.textPrimary }]}>{produto.nome}</Text>
-                  <Text style={[styles.itemSub,  { color: colors.textSecondary }]}>{total} em estoque</Text>
+                  <Text style={[styles.itemSub,  { color: colors.textSecondary }]}>
+                    {total} em estoque{previsoes[produto.id] !== undefined ? ` · ⏱ ~${previsoes[produto.id]}d` : ''}
+                  </Text>
                 </View>
                 <RiskBadge risco={risco} diasParaVencer={diasPiorLote} />
               </TouchableOpacity>

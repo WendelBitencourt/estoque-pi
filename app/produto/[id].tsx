@@ -18,6 +18,8 @@ import { Produto, Lote } from '../../services/tipos';
 import { getProdutoById } from '../../services/produtosService';
 import { subscribeLotesByProduto } from '../../services/lotesService';
 import { getRiscoProduto, diasParaVencer } from '../../services/risco';
+import { getSaidasProduto } from '../../services/movimentacoesService';
+import { preverFimEstoque, PrevisaoEstoque } from '../../services/mlService';
 
 const CATEGORIA_LABEL: Record<string, string> = {
   alimentos: 'Alimentos',
@@ -35,6 +37,107 @@ const CLASSE_LABEL: Record<string, string> = {
   atencao:    'Risco de Vencimento',
   seguro:     'Seguro',
 };
+
+function PrevisaoBanner({ produtoId, estoqueTotal }: { produtoId: string; estoqueTotal: number }) {
+  const { colors } = useTheme();
+  const [saidas, setSaidas] = useState<{ data: string; quantidade: number }[] | null>(null);
+  const [previsao, setPrevisao] = useState<PrevisaoEstoque | null | undefined>(undefined);
+
+  useEffect(() => {
+    getSaidasProduto(produtoId).then(setSaidas).catch(() => setSaidas([]));
+  }, [produtoId]);
+
+  useEffect(() => {
+    if (saidas === null) return;
+    if (saidas.length < 3) {
+      setPrevisao({ suficiente: false, taxaUnidDia: null, diasRestantes: null, r2: null, mensagem: 'Dados insuficientes' });
+      return;
+    }
+    setPrevisao(undefined);
+    preverFimEstoque(saidas, estoqueTotal)
+      .then(setPrevisao)
+      .catch(() => setPrevisao(null));
+  }, [saidas, estoqueTotal]);
+
+  if (previsao === undefined) {
+    return (
+      <View style={[styles.prevCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <ActivityIndicator size="small" color={colors.primary} />
+        <Text style={[styles.prevCarregando, { color: colors.textSecondary }]}>Calculando previsão…</Text>
+      </View>
+    );
+  }
+
+  if (previsao === null) {
+    return (
+      <View style={[styles.prevCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={styles.prevIcone}>📡</Text>
+        <View style={styles.prevTextos}>
+          <Text style={[styles.prevTitulo, { color: colors.textPrimary }]}>Sem conexão</Text>
+          <Text style={[styles.prevSub, { color: colors.textSecondary }]}>Previsão indisponível</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (!previsao.suficiente) {
+    return (
+      <View style={[styles.prevCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={styles.prevIcone}>📊</Text>
+        <View style={styles.prevTextos}>
+          <Text style={[styles.prevTitulo, { color: colors.textPrimary }]}>Previsão indisponível</Text>
+          <Text style={[styles.prevSub, { color: colors.textSecondary }]}>Registre pelo menos 3 saídas para ativar</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (estoqueTotal === 0) {
+    return (
+      <View style={[styles.prevCard, { backgroundColor: colors.riscoAltoLight, borderColor: colors.riscoAlto }]}>
+        <Text style={styles.prevIcone}>📭</Text>
+        <View style={styles.prevTextos}>
+          <Text style={[styles.prevTitulo, { color: colors.riscoAltoDark }]}>Estoque zerado</Text>
+          <Text style={[styles.prevSub, { color: colors.riscoAltoDark }]}>Registre uma entrada para repor</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const dias = previsao.diasRestantes;
+  const corDias = dias === null ? colors.textPrimary : dias <= 7 ? colors.riscoAltoDark : dias <= 30 ? colors.riscoAtencaoDark : colors.riscoSeguroDark;
+  const bgDias  = dias === null ? colors.surfaceSecondary : dias <= 7 ? colors.riscoAltoLight : dias <= 30 ? colors.riscoAtencaoLight : colors.riscoSeguroLight;
+  const bordaDias = dias === null ? colors.border : dias <= 7 ? colors.riscoAlto : dias <= 30 ? colors.riscoAtencao : colors.riscoSeguro;
+
+  return (
+    <View style={[styles.prevResultado, { backgroundColor: bgDias, borderColor: bordaDias }]}>
+      <View style={styles.prevResultadoTopo}>
+        <View>
+          <Text style={[styles.prevLabel, { color: corDias }]}>estoque dura ainda</Text>
+          <Text style={[styles.prevDias, { color: corDias }]}>
+            {dias !== null ? `~${dias} dias` : previsao.mensagem}
+          </Text>
+        </View>
+        {previsao.taxaUnidDia !== null && (
+          <Text style={[styles.prevTaxa, { color: corDias }]}>
+            {previsao.taxaUnidDia.toFixed(1).replace('.', ',')} un./dia
+          </Text>
+        )}
+      </View>
+      {previsao.r2 !== null && (
+        <View style={styles.prevR2Wrap}>
+          <View style={[styles.prevR2Trilho, { backgroundColor: colors.surface }]}>
+            <View style={[styles.prevR2Fill, { flex: previsao.r2, backgroundColor: corDias, opacity: 0.7 }]} />
+            <View style={{ flex: 1 - previsao.r2 }} />
+          </View>
+          <Text style={[styles.prevR2Label, { color: corDias }]}>
+            precisão R² {previsao.r2.toFixed(2)}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
 
 function LoteCard({ lote, mediaConsumoDias }: { lote: Lote; mediaConsumoDias: number }) {
   const { colors } = useTheme();
@@ -177,6 +280,9 @@ export default function ProdutoDetalheScreen() {
             </View>
           </View>
 
+          {/* Banner de previsão de consumo */}
+          <PrevisaoBanner produtoId={produto.id} estoqueTotal={total} />
+
           {/* Lotes */}
           <View style={styles.secaoHeader}>
             <Text style={[styles.secaoTitulo, { color: colors.textSecondary }]}>LOTES ATIVOS</Text>
@@ -245,7 +351,7 @@ const styles = StyleSheet.create({
   heroNome: { fontSize: 22, fontWeight: '800', letterSpacing: -0.3, lineHeight: 28 },
   heroCategoria: { fontSize: 15 },
 
-  resumoRow: { flexDirection: 'row', gap: 12, marginBottom: 28 },
+  resumoRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
   resumoCard: { flex: 1, borderRadius: 16, padding: 18, alignItems: 'center', gap: 4 },
   resumoValor: { fontSize: 30, fontWeight: '800' },
   resumoLabel: { fontSize: 14, fontWeight: '600', textAlign: 'center' },
@@ -282,4 +388,30 @@ const styles = StyleSheet.create({
   acaoBotao: { flex: 1, borderRadius: 18, paddingVertical: 18, alignItems: 'center', gap: 6 },
   acaoEmoji: { fontSize: 26 },
   acaoTexto: { color: '#FFFFFF', fontSize: 15, fontWeight: '700', textAlign: 'center', lineHeight: 20 },
+
+  // PrevisaoBanner — estado de carregamento / sem dados / sem conexão
+  prevCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderRadius: 14, borderWidth: 1, padding: 14, marginBottom: 20,
+  },
+  prevCarregando: { fontSize: 14 },
+  prevIcone:      { fontSize: 26 },
+  prevTextos:     { flex: 1 },
+  prevTitulo:     { fontSize: 15, fontWeight: '700' },
+  prevSub:        { fontSize: 13, marginTop: 2 },
+
+  // PrevisaoBanner — estado normal (resultado)
+  prevResultado: {
+    borderRadius: 14, borderWidth: 1.5, padding: 16, marginBottom: 20,
+    gap: 10,
+  },
+  prevResultadoTopo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  prevLabel: { fontSize: 12, fontWeight: '600', opacity: 0.75, marginBottom: 2 },
+  prevDias:  { fontSize: 26, fontWeight: '900', letterSpacing: -0.5 },
+  prevTaxa:  { fontSize: 14, fontWeight: '600', opacity: 0.85 },
+
+  prevR2Wrap:   { gap: 4 },
+  prevR2Trilho: { height: 6, borderRadius: 3, overflow: 'hidden', flexDirection: 'row' },
+  prevR2Fill:   { height: '100%' },
+  prevR2Label:  { fontSize: 11, opacity: 0.65 },
 });

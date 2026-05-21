@@ -23,6 +23,7 @@ import { atualizarMediaConsumo } from '../../services/produtosService';
 import { subscribeLotesByProduto, ajustarQuantidadeLote } from '../../services/lotesService';
 import { criarMovimentacao, recalcularMediaConsumo } from '../../services/movimentacoesService';
 import { diasParaVencer } from '../../services/risco';
+import { notificarEstoqueZerado } from '../../services/notificacoesService';
 
 type TipoBaixa = 'saida' | 'descarte';
 
@@ -553,6 +554,10 @@ export default function BaixaScreen() {
       const novaMedia = await recalcularMediaConsumo(produto.id);
       if (novaMedia !== null) {
         await atualizarMediaConsumo(produto.id, novaMedia);
+      }
+      // Alerta imediato se este lote ficou zerado
+      if (lote.quantidade - qtd <= 0) {
+        notificarEstoqueZerado(produto.nome).catch(() => {});
       }
       setSucesso(true);
     } catch {
