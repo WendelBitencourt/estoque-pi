@@ -31,7 +31,7 @@ function docToLote(d: DocumentSnapshot): Lote {
     codigo: data.codigo,
     quantidade: data.quantidade,
     validade: tsToISO(data.validade),
-    risco: data.risco,
+    risco: data.risco ?? 'seguro',
     dataCadastro: tsToISO(data.dataEntrada),
   };
 }

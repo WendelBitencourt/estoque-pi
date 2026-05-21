@@ -30,7 +30,13 @@ function formatarDataCompleta(iso: string) {
   return `${day}/${month}/${year}`;
 }
 
-function LoteCard({ lote }: { lote: Lote }) {
+const CLASSE_LABEL: Record<string, string> = {
+  risco_alto: 'Consumo Imediato',
+  atencao:    'Risco de Vencimento',
+  seguro:     'Seguro',
+};
+
+function LoteCard({ lote, mediaConsumoDias }: { lote: Lote; mediaConsumoDias: number }) {
   const { colors } = useTheme();
   const dias = diasParaVencer(lote.validade);
 
@@ -38,6 +44,16 @@ function LoteCard({ lote }: { lote: Lote }) {
     lote.risco === 'risco_alto' ? colors.riscoAlto
     : lote.risco === 'atencao' ? colors.riscoAtencao
     : colors.riscoSeguro;
+
+  const corML =
+    lote.risco === 'risco_alto' ? colors.riscoAltoDark
+    : lote.risco === 'atencao' ? colors.riscoAtencaoDark
+    : colors.riscoSeguroDark;
+
+  const bgML =
+    lote.risco === 'risco_alto' ? colors.riscoAltoLight
+    : lote.risco === 'atencao' ? colors.riscoAtencaoLight
+    : colors.riscoSeguroLight;
 
   return (
     <View style={[styles.loteCard, { backgroundColor: colors.surface, borderColor: colors.border, borderLeftColor: bordaEsquerda }]}>
@@ -62,6 +78,13 @@ function LoteCard({ lote }: { lote: Lote }) {
           <Text style={[styles.loteInfoLabel, { color: colors.textSecondary }]}>Cadastrado</Text>
           <Text style={[styles.loteInfoValor, { color: colors.textPrimary }]}>{formatarDataCompleta(lote.dataCadastro)}</Text>
         </View>
+      </View>
+
+      {/* Explicação da classificação pelo ML */}
+      <View style={[styles.mlRow, { backgroundColor: bgML }]}>
+        <Text style={[styles.mlTexto, { color: corML }]}>
+          🧠 {dias}d restantes · consumo médio {mediaConsumoDias}d → {CLASSE_LABEL[lote.risco]}
+        </Text>
       </View>
     </View>
   );
@@ -162,7 +185,7 @@ export default function ProdutoDetalheScreen() {
             </View>
           ) : (
             <View style={styles.lotesList}>
-              {lotes.map((lote) => <LoteCard key={lote.id} lote={lote} />)}
+              {lotes.map((lote) => <LoteCard key={lote.id} lote={lote} mediaConsumoDias={produto.mediaConsumoDias} />)}
             </View>
           )}
 
@@ -242,6 +265,9 @@ const styles = StyleSheet.create({
   loteInfoLabel: { fontSize: 12, fontWeight: '600' },
   loteInfoValor: { fontSize: 15, fontWeight: '700' },
   loteInfoDivider: { width: 1, marginVertical: 2, marginHorizontal: 8 },
+
+  mlRow:   { paddingHorizontal: 16, paddingVertical: 10 },
+  mlTexto: { fontSize: 13, fontWeight: '600' },
 
   vazioCard: { borderRadius: 16, borderWidth: 1, padding: 32, alignItems: 'center', gap: 10 },
   vazioEmoji: { fontSize: 36 },

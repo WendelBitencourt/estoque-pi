@@ -28,7 +28,7 @@ export function RiskBadge({ risco, diasParaVencer }: Props) {
     },
   };
 
-  const { label, bg, text } = config[risco];
+  const { label, bg, text } = config[risco] ?? config.seguro;
 
   return (
     <View style={[styles.badge, { backgroundColor: bg }]}>
