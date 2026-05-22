@@ -585,7 +585,7 @@ export default function BaixaScreen() {
       }
       setSucesso(true);
     } catch {
-      Alert.alert('Erro', 'Não foi possível registrar a baixa. Tente novamente.');
+      Alert.alert('Saída não registrada', 'Não foi possível salvar os dados. Verifique a conexão e tente novamente.');
       setSalvando(false);
     }
   }

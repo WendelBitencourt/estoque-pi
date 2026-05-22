@@ -8,6 +8,7 @@ import {
   Modal,
   ActivityIndicator,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -250,15 +251,22 @@ function ModalExportacao({
       });
 
       const html = gerarHTML(filtradas, produtoMap, loteMap, periodoLabel, tipoLabel);
-      const { uri } = await Print.printToFileAsync({ html, base64: false });
+      let uri: string;
+      try {
+        ({ uri } = await Print.printToFileAsync({ html, base64: false }));
+      } catch {
+        Alert.alert('Relatório não gerado', 'Não foi possível criar o arquivo. Verifique se há espaço disponível no dispositivo.');
+        return;
+      }
+      // shareAsync lança ao cancelar em alguns sistemas — silencia
       await Sharing.shareAsync(uri, {
         mimeType: 'application/pdf',
         dialogTitle: 'Salvar ou compartilhar relatório',
         UTI: 'com.adobe.pdf',
-      });
+      }).catch(() => {});
       onFechar();
     } catch {
-      // silently handle share cancellation
+      // fallback silencioso para casos não previstos
     } finally {
       setGerando(false);
     }

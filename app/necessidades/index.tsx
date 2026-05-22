@@ -198,7 +198,7 @@ export default function NecessidadesScreen() {
   function handleCopiar() {
     const texto = gerarTexto(urgentes, atencao, sugestao);
     Share.share({ message: texto, title: 'Lista de Necessidades — Casa da Criança' })
-      .catch(() => Alert.alert('Erro', 'Não foi possível abrir o compartilhamento.'));
+      .catch(() => Alert.alert('Não foi possível compartilhar', 'Verifique se o WhatsApp está instalado ou copie o texto manualmente.'));
   }
 
   return (

@@ -13,6 +13,7 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { mensagemErro } from '../../utils/erros';
 import { router } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { useLocalSearchParams } from 'expo-router';
@@ -134,7 +135,7 @@ export default function CadastroScreen() {
       setFotoComErro(false);
       setFonteDados(null);
     } catch (e) {
-      Alert.alert('Erro ao enviar foto', String(e));
+      Alert.alert('Foto não enviada', mensagemErro(e, 'Não foi possível enviar a foto. Verifique a conexão e tente novamente.'));
     } finally {
       setEnviandoFoto(false);
     }
@@ -162,7 +163,7 @@ export default function CadastroScreen() {
       setFotoComErro(false);
       setFonteDados(null);
     } catch (e) {
-      Alert.alert('Erro ao enviar foto', String(e));
+      Alert.alert('Foto não enviada', mensagemErro(e, 'Não foi possível enviar a foto. Verifique a conexão e tente novamente.'));
     } finally {
       setEnviandoFoto(false);
     }
@@ -183,7 +184,7 @@ export default function CadastroScreen() {
       });
       setSucesso(true);
     } catch {
-      Alert.alert('Erro', 'Não foi possível salvar o produto. Tente novamente.');
+      Alert.alert('Produto não salvo', 'Não foi possível salvar o cadastro. Verifique a conexão e tente novamente.');
     } finally {
       setSalvando(false);
     }

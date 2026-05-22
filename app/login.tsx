@@ -57,7 +57,7 @@ export default function LoginScreen() {
       await loginComGoogle(idToken, accessToken);
       // AuthContext detecta o usuário e _layout redireciona para /
     } catch {
-      setErro('Erro ao entrar com Google.');
+      setErro('Não foi possível entrar com Google. Feche o app e tente novamente.');
     } finally {
       setCarregando(false);
     }

@@ -173,9 +173,9 @@ export default function ConfiguracoesScreen() {
       router.replace('/login');
     } catch {
       if (Platform.OS === 'web') {
-        window.alert('Não foi possível sair da conta. Tente novamente.');
+        window.alert('Não foi possível sair da conta. Feche e reabra o app para tentar novamente.');
       } else {
-        Alert.alert('Erro', 'Não foi possível sair da conta. Tente novamente.');
+        Alert.alert('Não foi possível sair', 'Feche e reabra o app para tentar novamente.');
       }
     }
   }

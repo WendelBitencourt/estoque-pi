@@ -80,7 +80,7 @@ function Passo1({
         router.push(`/cadastro?ean=${ean}`);
       }
     } catch {
-      Alert.alert('Erro', 'Não foi possível verificar o produto. Tente novamente.');
+      Alert.alert('Produto não localizado', 'Não foi possível consultar o código de barras. Verifique a conexão ou preencha o produto manualmente.');
     } finally {
       setBuscandoPorEan(false);
     }
@@ -613,7 +613,7 @@ export default function EntradaScreen() {
       });
       setSucesso(true);
     } catch {
-      Alert.alert('Erro', 'Não foi possível registrar a entrada. Tente novamente.');
+      Alert.alert('Entrada não registrada', 'Não foi possível salvar os dados. Verifique a conexão e tente novamente.');
       setSalvando(false);
     }
   }
