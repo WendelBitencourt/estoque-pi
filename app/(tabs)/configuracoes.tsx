@@ -319,7 +319,7 @@ export default function ConfiguracoesScreen() {
           <ItemNavegacao
             label="Categorias de produtos"
             descricao="Adicionar ou renomear categorias"
-            onPress={() => avisoEmBreve('Categorias')}
+            onPress={() => router.push('/categorias')}
           />
         </Cartao>
 

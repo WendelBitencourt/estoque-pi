@@ -18,20 +18,12 @@ import { router } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../../theme';
-import { Categoria } from '../../services/tipos';
 import * as ImagePicker from 'expo-image-picker';
 import { buscarPorEan } from '../../services/barcode';
 import { criarProduto } from '../../services/produtosService';
 import { uploadFoto } from '../../services/storageService';
 import { BarcodeScanner } from '../../components/BarcodeScanner';
-
-// ── constantes ───────────────────────────────────────────────────────────────
-
-const CATEGORIAS: { valor: Categoria; label: string; emoji: string }[] = [
-  { valor: 'alimentos', label: 'Alimentos', emoji: '🥛' },
-  { valor: 'higiene', label: 'Higiene', emoji: '🧴' },
-  { valor: 'limpeza', label: 'Limpeza', emoji: '🫧' },
-];
+import { CategoriaItem, CATEGORIAS_PADRAO, subscribeCategorias } from '../../services/categoriasService';
 
 // ── tela ─────────────────────────────────────────────────────────────────────
 
@@ -40,7 +32,8 @@ export default function CadastroScreen() {
   const { ean: eanParam } = useLocalSearchParams<{ ean?: string }>();
 
   const [nome, setNome] = useState('');
-  const [categoria, setCategoria] = useState<Categoria | null>(null);
+  const [categoria, setCategoria] = useState<string | null>(null);
+  const [categorias, setCategorias] = useState<CategoriaItem[]>(CATEGORIAS_PADRAO);
   const [ean, setEan] = useState<string | null>(null);
   const [conteudo, setConteudo] = useState('');
   const [fotoUrl, setFotoUrl] = useState<string | null>(null);
@@ -75,6 +68,8 @@ export default function CadastroScreen() {
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => subscribeCategorias(setCategorias), []);
 
   // ── lógica do scanner ────────────────────────────────────────────────────
 
@@ -173,11 +168,11 @@ export default function CadastroScreen() {
     if (!podeEnviar || salvando) return;
     setSalvando(true);
     try {
-      const cat = CATEGORIAS.find((c) => c.valor === categoria)!;
+      const cat = categorias.find((c) => c.id === categoria);
       await criarProduto({
         nome: nome.trim(),
         categoria: categoria!,
-        emoji: cat.emoji,
+        emoji: cat?.emoji ?? '📦',
         ean: ean ?? undefined,
         fotoUrl: fotoUrl ?? undefined,
         conteudo: conteudo.trim() || undefined,
@@ -192,7 +187,7 @@ export default function CadastroScreen() {
 
   // ── tela de sucesso ──────────────────────────────────────────────────────
   if (sucesso) {
-    const cat = CATEGORIAS.find((c) => c.valor === categoria);
+    const cat = categorias.find((c) => c.id === categoria);
     return (
       <SafeAreaView style={[s.safe, { backgroundColor: colors.background }]}>
         <View style={s.sucessoWrap}>
@@ -291,7 +286,7 @@ export default function CadastroScreen() {
                 {fotoComErro ? (
                   <View style={[s.fotoFallback, { backgroundColor: colors.surfaceSecondary }]}>
                     <Text style={s.fotoFallbackEmoji}>
-                      {CATEGORIAS.find((c) => c.valor === categoria)?.emoji ?? '📦'}
+                      {categorias.find((c) => c.id === categoria)?.emoji ?? '📦'}
                     </Text>
                     <Text style={[s.fotoFallbackTexto, { color: colors.textDisabled }]}>
                       Foto indisponível
@@ -382,11 +377,11 @@ export default function CadastroScreen() {
               Categoria *
             </Text>
             <View style={s.categoriaGrid}>
-              {CATEGORIAS.map((cat) => {
-                const ativo = categoria === cat.valor;
+              {categorias.map((cat) => {
+                const ativo = categoria === cat.id;
                 return (
                   <TouchableOpacity
-                    key={cat.valor}
+                    key={cat.id}
                     style={[
                       s.categoriaItem,
                       {
@@ -394,7 +389,7 @@ export default function CadastroScreen() {
                         borderColor: ativo ? colors.primary : colors.border,
                       },
                     ]}
-                    onPress={() => setCategoria(cat.valor)}
+                    onPress={() => setCategoria(cat.id)}
                     activeOpacity={0.75}
                     accessibilityLabel={`Categoria: ${cat.label}${ativo ? ', selecionada' : ''}`}
                   >
@@ -452,7 +447,7 @@ export default function CadastroScreen() {
                     />
                   ) : (
                     <Text style={s.previewEmoji}>
-                      {CATEGORIAS.find((c) => c.valor === categoria)?.emoji ?? '📦'}
+                      {categorias.find((c) => c.id === categoria)?.emoji ?? '📦'}
                     </Text>
                   )}
                 </View>
@@ -461,7 +456,7 @@ export default function CadastroScreen() {
                     {nome.trim()}
                   </Text>
                   <Text style={[s.previewSub, { color: colors.textSecondary }]}>
-                    {CATEGORIAS.find((c) => c.valor === categoria)?.label}
+                    {categorias.find((c) => c.id === categoria)?.label}
                     {conteudo ? ` · ${conteudo}` : ''}
                     {ean ? ` · EAN ${ean}` : ''}
                   </Text>

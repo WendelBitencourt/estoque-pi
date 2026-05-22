@@ -13,39 +13,29 @@ import { router } from 'expo-router';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { SkeletonLista } from '../../components/SkeletonCard';
 import { useTheme } from '../../theme';
-import { Produto, Lote, Categoria } from '../../services/tipos';
+import { Produto, Lote } from '../../services/tipos';
 import { subscribeToProdutos } from '../../services/produtosService';
 import { subscribeAllLotes } from '../../services/lotesService';
+import { CategoriaItem, CATEGORIAS_PADRAO, subscribeCategorias } from '../../services/categoriasService';
 
-type FiltroCategoria = Categoria | null;
-
-const CATEGORIAS: { valor: Categoria; label: string; emoji: string }[] = [
-  { valor: 'alimentos', label: 'Alimentos', emoji: '🥛' },
-  { valor: 'higiene',   label: 'Higiene',   emoji: '🧴' },
-  { valor: 'limpeza',   label: 'Limpeza',   emoji: '🫧' },
-];
-
-const CATEGORIA_LABEL: Record<Categoria, string> = {
-  alimentos: 'Alimentos',
-  higiene:   'Higiene',
-  limpeza:   'Limpeza',
-};
+type FiltroCategoria = string | null;
 
 interface ProdutoInfo {
   produto: Produto;
   totalEstoque: number;
 }
 
-function ProdutoCard({ info }: { info: ProdutoInfo }) {
+function ProdutoCard({ info, categorias }: { info: ProdutoInfo; categorias: CategoriaItem[] }) {
   const { colors } = useTheme();
   const { produto } = info;
+  const catLabel = categorias.find((c) => c.id === produto.categoria)?.label ?? produto.categoria;
 
   return (
     <TouchableOpacity
       style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
       onPress={() => router.push(`/produto/${produto.id}`)}
       activeOpacity={0.75}
-      accessibilityLabel={`${produto.nome}, ${CATEGORIA_LABEL[produto.categoria]}${info.totalEstoque > 0 ? `, ${info.totalEstoque} em estoque` : ', aguardando doação'}`}
+      accessibilityLabel={`${produto.nome}, ${catLabel}${info.totalEstoque > 0 ? `, ${info.totalEstoque} em estoque` : ', aguardando doação'}`}
     >
       <View style={[styles.emojiBg, { backgroundColor: colors.surfaceSecondary }]}>
         {produto.fotoUrl ? (
@@ -60,7 +50,7 @@ function ProdutoCard({ info }: { info: ProdutoInfo }) {
           {produto.nome}
         </Text>
         <Text style={[styles.categoria, { color: colors.textSecondary }]}>
-          {CATEGORIA_LABEL[produto.categoria]}
+          {catLabel}
           {produto.conteudo ? `  ·  ${produto.conteudo}` : ''}
         </Text>
       </View>
@@ -79,6 +69,7 @@ export default function ProdutosScreen() {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [lotes, setLotes] = useState<Lote[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [categorias, setCategorias] = useState<CategoriaItem[]>(CATEGORIAS_PADRAO);
   const recebido = useRef({ produtos: false, lotes: false });
 
   function marcarRecebido(chave: 'produtos' | 'lotes') {
@@ -90,7 +81,8 @@ export default function ProdutosScreen() {
     const timer = setTimeout(() => setCarregando(false), 6000);
     const u1 = subscribeToProdutos((d) => { setProdutos(d); marcarRecebido('produtos'); });
     const u2 = subscribeAllLotes((d)   => { setLotes(d);    marcarRecebido('lotes'); });
-    return () => { u1(); u2(); clearTimeout(timer); };
+    const u3 = subscribeCategorias(setCategorias);
+    return () => { u1(); u2(); u3(); clearTimeout(timer); };
   }, []);
 
   const itens = useMemo<ProdutoInfo[]>(() => {
@@ -133,16 +125,16 @@ export default function ProdutosScreen() {
         </View>
 
         <View style={styles.chipsRow}>
-          {CATEGORIAS.map((cat) => {
-            const ativo = filtroCategoria === cat.valor;
+          {categorias.map((cat) => {
+            const ativo = filtroCategoria === cat.id;
             return (
               <TouchableOpacity
-                key={cat.valor}
+                key={cat.id}
                 style={[styles.chip, {
                   backgroundColor: ativo ? colors.accent : colors.surface,
                   borderColor:     ativo ? colors.accent : colors.border,
                 }]}
-                onPress={() => setFiltroCategoria(ativo ? null : cat.valor)}
+                onPress={() => setFiltroCategoria(ativo ? null : cat.id)}
               >
                 <Text style={styles.chipEmoji}>{cat.emoji}</Text>
                 <Text style={[styles.chipLabel, { color: ativo ? '#FFFFFF' : colors.textSecondary }]}>
@@ -210,7 +202,7 @@ export default function ProdutosScreen() {
         <FlatList
           data={itens}
           keyExtractor={(item) => item.produto.id}
-          renderItem={({ item }) => <ProdutoCard info={item} />}
+          renderItem={({ item }) => <ProdutoCard info={item} categorias={categorias} />}
           contentContainerStyle={styles.lista}
           showsVerticalScrollIndicator={false}
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}

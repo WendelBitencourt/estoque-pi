@@ -1,4 +1,4 @@
-export type Categoria = 'alimentos' | 'higiene' | 'limpeza';
+export type Categoria = string;
 export type NivelRisco = 'seguro' | 'atencao' | 'risco_alto';
 export type TipoMovimentacao = 'entrada' | 'saida' | 'descarte';
 

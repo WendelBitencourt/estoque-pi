@@ -21,8 +21,8 @@ export type StatusBusca =
   | { status: 'limite_excedido' }   // Cosmos: plano gratuito esgotado no dia
   | { status: 'sem_internet' };
 
-/** Emoji de fallback por categoria — usado quando a imagem não carrega. */
-export const EMOJI_POR_CATEGORIA: Record<Categoria, string> = {
+/** Emoji de fallback por categoria — cobre as categorias padrão. */
+export const EMOJI_POR_CATEGORIA: Record<string, string> = {
   alimentos: '🍎',
   higiene:   '🧴',
   limpeza:   '🧹',

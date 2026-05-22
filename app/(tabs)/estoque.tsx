@@ -16,19 +16,14 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { SkeletonLista } from '../../components/SkeletonCard';
 import { useTheme } from '../../theme';
 import { RiskBadge } from '../../components/RiskBadge';
-import { Produto, Lote, NivelRisco, Categoria } from '../../services/tipos';
+import { Produto, Lote, NivelRisco } from '../../services/tipos';
 import { subscribeToProdutos } from '../../services/produtosService';
 import { subscribeAllLotes } from '../../services/lotesService';
 import { getRiscoProduto, diasParaVencer } from '../../services/risco';
+import { CategoriaItem, CATEGORIAS_PADRAO, subscribeCategorias } from '../../services/categoriasService';
 
 type FiltroRisco = 'todos' | 'risco_alto' | 'atencao' | 'seguro';
-type FiltroCategoria = Categoria | null;
-
-const CATEGORIAS: { valor: Categoria; label: string; emoji: string }[] = [
-  { valor: 'alimentos', label: 'Alimentos', emoji: '🥛' },
-  { valor: 'higiene', label: 'Higiene', emoji: '🧴' },
-  { valor: 'limpeza', label: 'Limpeza', emoji: '🫧' },
-];
+type FiltroCategoria = string | null;
 
 interface ItemInfo {
   produto: Produto;
@@ -86,6 +81,7 @@ export default function EstoqueScreen() {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [lotes, setLotes] = useState<Lote[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [categorias, setCategorias] = useState<CategoriaItem[]>(CATEGORIAS_PADRAO);
   const recebido = useRef({ produtos: false, lotes: false });
 
   function marcarRecebido(chave: 'produtos' | 'lotes') {
@@ -97,7 +93,8 @@ export default function EstoqueScreen() {
     const timer = setTimeout(() => setCarregando(false), 6000); // fallback
     const u1 = subscribeToProdutos((d) => { setProdutos(d); marcarRecebido('produtos'); });
     const u2 = subscribeAllLotes((d)   => { setLotes(d);    marcarRecebido('lotes'); });
-    return () => { u1(); u2(); clearTimeout(timer); };
+    const u3 = subscribeCategorias(setCategorias);
+    return () => { u1(); u2(); u3(); clearTimeout(timer); };
   }, []);
 
   const todosItens = useMemo<ItemInfo[]>(() => {
@@ -180,13 +177,13 @@ export default function EstoqueScreen() {
             );
           })}
           <View style={styles.chipDivider} />
-          {CATEGORIAS.map((cat) => {
-            const ativo = filtroCategoria === cat.valor;
+          {categorias.map((cat) => {
+            const ativo = filtroCategoria === cat.id;
             return (
               <TouchableOpacity
-                key={cat.valor}
+                key={cat.id}
                 style={[styles.chip, { backgroundColor: ativo ? colors.accent : colors.surface, borderColor: ativo ? colors.accent : colors.border }]}
-                onPress={() => setFiltroCategoria(ativo ? null : cat.valor)}
+                onPress={() => setFiltroCategoria(ativo ? null : cat.id)}
               >
                 <Text style={styles.chipEmoji}>{cat.emoji}</Text>
                 <Text style={[styles.chipLabel, { color: ativo ? '#FFFFFF' : colors.textSecondary }]}>{cat.label}</Text>
