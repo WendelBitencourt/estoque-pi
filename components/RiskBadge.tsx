@@ -1,4 +1,11 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { Text, StyleSheet } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
+import { useEffect, useRef } from 'react';
 import { useTheme } from '../theme';
 import { NivelRisco } from '../services/tipos';
 
@@ -9,13 +16,28 @@ interface Props {
 
 export function RiskBadge({ risco, diasParaVencer }: Props) {
   const { colors } = useTheme();
+  const scale = useSharedValue(1);
+  const prevRisco = useRef<NivelRisco | null>(null);
 
-  // Lote criado offline — ainda sem classificação do modelo
+  useEffect(() => {
+    if (risco === 'risco_alto' && prevRisco.current !== 'risco_alto') {
+      scale.value = withSequence(
+        withTiming(1.14, { duration: 220 }),
+        withTiming(1, { duration: 220 }),
+      );
+    }
+    prevRisco.current = risco;
+  }, [risco]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
   if (risco === null) {
     return (
-      <View style={[styles.badge, { backgroundColor: colors.surfaceSecondary }]}>
+      <Animated.View style={[styles.badge, { backgroundColor: colors.surfaceSecondary }, animStyle]}>
         <Text style={[styles.label, { color: colors.textDisabled }]}>Calculando…</Text>
-      </View>
+      </Animated.View>
     );
   }
 
@@ -40,9 +62,9 @@ export function RiskBadge({ risco, diasParaVencer }: Props) {
   const { label, bg, text } = config[risco];
 
   return (
-    <View style={[styles.badge, { backgroundColor: bg }]}>
+    <Animated.View style={[styles.badge, { backgroundColor: bg }, animStyle]}>
       <Text style={[styles.label, { color: text }]}>{label}</Text>
-    </View>
+    </Animated.View>
   );
 }
 

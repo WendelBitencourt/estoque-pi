@@ -7,6 +7,7 @@ import {
   Platform,
   Image,
 } from 'react-native';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useState, useEffect, useMemo } from 'react';
@@ -141,33 +142,37 @@ export default function InicioScreen() {
         {/* ── Alerta de Desperdício ── */}
         {totalLotes > 0 && (
           unidadesEmRisco > 0 ? (
-            <TouchableOpacity
-              style={[styles.alertaBanner, { backgroundColor: colors.riscoAltoLight, borderColor: colors.riscoAlto }]}
-              onPress={() => router.push('/estoque')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.alertaIcone}>⚠️</Text>
-              <View style={styles.alertaTextos}>
-                <Text style={[styles.alertaTitulo, { color: colors.riscoAltoDark }]}>
-                  Alerta de Desperdício
-                </Text>
-                <Text style={[styles.alertaDescricao, { color: colors.riscoAltoDark }]}>
-                  {unidadesEmRisco} {unidadesEmRisco === 1 ? 'unidade' : 'unidades'} em risco de vencer
-                  {diasMaisUrgente !== null ? ` — mais urgente em ${diasMaisUrgente}d` : ''}
-                </Text>
-              </View>
-              <Text style={[styles.alertaSeta, { color: colors.riscoAltoDark }]}>›</Text>
-            </TouchableOpacity>
+            <Animated.View entering={FadeIn.duration(500)}>
+              <TouchableOpacity
+                style={[styles.alertaBanner, { backgroundColor: colors.riscoAltoLight, borderColor: colors.riscoAlto }]}
+                onPress={() => router.push('/estoque')}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.alertaIcone}>⚠️</Text>
+                <View style={styles.alertaTextos}>
+                  <Text style={[styles.alertaTitulo, { color: colors.riscoAltoDark }]}>
+                    Alerta de Desperdício
+                  </Text>
+                  <Text style={[styles.alertaDescricao, { color: colors.riscoAltoDark }]}>
+                    {unidadesEmRisco} {unidadesEmRisco === 1 ? 'unidade' : 'unidades'} em risco de vencer
+                    {diasMaisUrgente !== null ? ` — mais urgente em ${diasMaisUrgente}d` : ''}
+                  </Text>
+                </View>
+                <Text style={[styles.alertaSeta, { color: colors.riscoAltoDark }]}>›</Text>
+              </TouchableOpacity>
+            </Animated.View>
           ) : (
-            <View style={[styles.alertaBanner, { backgroundColor: colors.riscoSeguroLight, borderColor: colors.riscoSeguro }]}>
-              <Text style={styles.alertaIcone}>✅</Text>
-              <View style={styles.alertaTextos}>
-                <Text style={[styles.alertaTitulo, { color: colors.riscoSeguroDark }]}>Sem risco de desperdício</Text>
-                <Text style={[styles.alertaDescricao, { color: colors.riscoSeguroDark }]}>
-                  Nenhum item em risco de vencer antes de ser consumido.
-                </Text>
+            <Animated.View entering={FadeIn.duration(500)}>
+              <View style={[styles.alertaBanner, { backgroundColor: colors.riscoSeguroLight, borderColor: colors.riscoSeguro }]}>
+                <Text style={styles.alertaIcone}>✅</Text>
+                <View style={styles.alertaTextos}>
+                  <Text style={[styles.alertaTitulo, { color: colors.riscoSeguroDark }]}>Sem risco de desperdício</Text>
+                  <Text style={[styles.alertaDescricao, { color: colors.riscoSeguroDark }]}>
+                    Nenhum item em risco de vencer antes de ser consumido.
+                  </Text>
+                </View>
               </View>
-            </View>
+            </Animated.View>
           )
         )}
 
@@ -203,37 +208,41 @@ export default function InicioScreen() {
         </View>
 
         {produtosAtencao.length === 0 ? (
-          <View style={[styles.vazio, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Animated.View entering={FadeIn.duration(400)} style={[styles.vazio, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text style={styles.vazioEmoji}>{totalLotes === 0 ? '📦' : '✅'}</Text>
             <Text style={[styles.vazioTexto, { color: colors.textSecondary }]}>
               {totalLotes === 0
                 ? 'Nenhuma doação registrada ainda.'
                 : 'Tudo em ordem! Nenhum produto em risco.'}
             </Text>
-          </View>
+          </Animated.View>
         ) : (
           <View style={styles.lista}>
-            {produtosAtencao.map(({ produto, risco, diasPiorLote, total }) => (
-              <TouchableOpacity
+            {produtosAtencao.map(({ produto, risco, diasPiorLote, total }, i) => (
+              <Animated.View
                 key={produto.id}
-                style={[styles.itemCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                onPress={() => router.push(`/produto/${produto.id}`)}
-                activeOpacity={0.75}
+                entering={FadeInDown.delay(i * 80).duration(450).springify().damping(16)}
               >
-                <View style={[styles.itemEmojiBg, { backgroundColor: colors.surfaceSecondary }]}>
-                  {produto.fotoUrl
-                    ? <Image source={{ uri: produto.fotoUrl }} style={styles.itemFoto} />
-                    : <Text style={styles.itemEmoji}>{produto.emoji}</Text>
-                  }
-                </View>
-                <View style={styles.itemInfo}>
-                  <Text style={[styles.itemNome, { color: colors.textPrimary }]}>{produto.nome}</Text>
-                  <Text style={[styles.itemSub,  { color: colors.textSecondary }]}>
-                    {total} em estoque{previsoes[produto.id] !== undefined ? ` · ⏱ ~${previsoes[produto.id]}d` : ''}
-                  </Text>
-                </View>
-                <RiskBadge risco={risco} diasParaVencer={diasPiorLote} />
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.itemCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                  onPress={() => router.push(`/produto/${produto.id}`)}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.itemEmojiBg, { backgroundColor: colors.surfaceSecondary }]}>
+                    {produto.fotoUrl
+                      ? <Image source={{ uri: produto.fotoUrl }} style={styles.itemFoto} />
+                      : <Text style={styles.itemEmoji}>{produto.emoji}</Text>
+                    }
+                  </View>
+                  <View style={styles.itemInfo}>
+                    <Text style={[styles.itemNome, { color: colors.textPrimary }]}>{produto.nome}</Text>
+                    <Text style={[styles.itemSub,  { color: colors.textSecondary }]}>
+                      {total} em estoque{previsoes[produto.id] !== undefined ? ` · ⏱ ~${previsoes[produto.id]}d` : ''}
+                    </Text>
+                  </View>
+                  <RiskBadge risco={risco} diasParaVencer={diasPiorLote} />
+                </TouchableOpacity>
+              </Animated.View>
             ))}
           </View>
         )}

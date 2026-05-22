@@ -9,6 +9,7 @@ import {
   SectionList,
   Image,
 } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useState, useEffect, useMemo } from 'react';
@@ -42,34 +43,36 @@ function formatarData(iso: string) {
   return `${d}/${m}`;
 }
 
-function ProdutoItem({ item }: { item: ItemInfo }) {
+function ProdutoItem({ item, index = 0 }: { item: ItemInfo; index?: number }) {
   const { colors } = useTheme();
   return (
-    <TouchableOpacity
-      style={[styles.itemCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-      onPress={() => router.push(`/produto/${item.produto.id}`)}
-      activeOpacity={0.75}
-    >
-      <View style={[styles.itemEmojiBg, { backgroundColor: colors.surfaceSecondary }]}>
-        {item.produto.fotoUrl ? (
-          <Image source={{ uri: item.produto.fotoUrl }} style={styles.itemFoto} />
-        ) : (
-          <Text style={styles.itemEmoji}>{item.produto.emoji}</Text>
-        )}
-      </View>
-      <View style={styles.itemInfo}>
-        <Text style={[styles.itemNome, { color: colors.textPrimary }]} numberOfLines={1}>
-          {item.produto.nome}
-        </Text>
-        <Text style={[styles.itemLote, { color: colors.textSecondary }]}>
-          Lote {item.codigoLote} · val. {formatarData(item.proximaValidade)}
-        </Text>
-        <Text style={[styles.itemQtd, { color: colors.textSecondary }]}>
-          {item.total} em estoque
-        </Text>
-      </View>
-      <RiskBadge risco={item.risco} diasParaVencer={item.dias} />
-    </TouchableOpacity>
+    <Animated.View entering={FadeInDown.delay(Math.min(index, 6) * 55).duration(400).springify().damping(18)}>
+      <TouchableOpacity
+        style={[styles.itemCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        onPress={() => router.push(`/produto/${item.produto.id}`)}
+        activeOpacity={0.75}
+      >
+        <View style={[styles.itemEmojiBg, { backgroundColor: colors.surfaceSecondary }]}>
+          {item.produto.fotoUrl ? (
+            <Image source={{ uri: item.produto.fotoUrl }} style={styles.itemFoto} />
+          ) : (
+            <Text style={styles.itemEmoji}>{item.produto.emoji}</Text>
+          )}
+        </View>
+        <View style={styles.itemInfo}>
+          <Text style={[styles.itemNome, { color: colors.textPrimary }]} numberOfLines={1}>
+            {item.produto.nome}
+          </Text>
+          <Text style={[styles.itemLote, { color: colors.textSecondary }]}>
+            Lote {item.codigoLote} · val. {formatarData(item.proximaValidade)}
+          </Text>
+          <Text style={[styles.itemQtd, { color: colors.textSecondary }]}>
+            {item.total} em estoque
+          </Text>
+        </View>
+        <RiskBadge risco={item.risco} diasParaVencer={item.dias} />
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
@@ -196,7 +199,7 @@ export default function EstoqueScreen() {
         <SectionList
           sections={secoes}
           keyExtractor={(item) => item.produto.id}
-          renderItem={({ item }) => <ProdutoItem item={item} />}
+          renderItem={({ item, index }) => <ProdutoItem item={item} index={index} />}
           renderSectionHeader={({ section }) => (
             <View style={[styles.secaoHeader, { backgroundColor: colors.background }]}>
               <View style={[styles.secaoDot, { backgroundColor: section.title === 'Requer atenção' ? colors.riscoAtencao : colors.riscoSeguro }]} />
