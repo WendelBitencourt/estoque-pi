@@ -15,7 +15,7 @@ import { useState, useEffect } from 'react';
 import { useTheme } from '../../theme';
 import { RiskBadge } from '../../components/RiskBadge';
 import { Produto, Lote } from '../../services/tipos';
-import { getProdutoById } from '../../services/produtosService';
+import { getProdutoById, toggleOcultarNecessidades } from '../../services/produtosService';
 import { subscribeLotesByProduto } from '../../services/lotesService';
 import { getRiscoProduto, diasParaVencer } from '../../services/risco';
 import { getSaidasProduto } from '../../services/movimentacoesService';
@@ -203,9 +203,14 @@ export default function ProdutoDetalheScreen() {
   const { colors } = useTheme();
   const [produto, setProduto] = useState<Produto | null | undefined>(undefined);
   const [lotes, setLotes] = useState<Lote[]>([]);
+  const [ocultado, setOcultado] = useState(false);
+  const [salvandoOcultar, setSalvandoOcultar] = useState(false);
 
   useEffect(() => {
-    getProdutoById(id).then(setProduto).catch(() => setProduto(null));
+    getProdutoById(id).then((p) => {
+      setProduto(p);
+      if (p) setOcultado(p.ocultarNecessidades ?? false);
+    }).catch(() => setProduto(null));
   }, [id]);
 
   useEffect(() => {
@@ -242,6 +247,19 @@ export default function ProdutoDetalheScreen() {
 
   const total = lotes.reduce((s, l) => s + l.quantidade, 0);
   const risco = lotes.length > 0 ? getRiscoProduto(lotes) : 'seguro';
+
+  async function handleToggleOcultar() {
+    const novoValor = !ocultado;
+    setSalvandoOcultar(true);
+    try {
+      await toggleOcultarNecessidades(produto!.id, novoValor);
+      setOcultado(novoValor);
+    } catch {
+      Alert.alert('Erro', 'Não foi possível salvar. Tente novamente.');
+    } finally {
+      setSalvandoOcultar(false);
+    }
+  }
 
   return (
     <>
@@ -322,6 +340,38 @@ export default function ProdutoDetalheScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Visibilidade na lista de necessidades */}
+          <View style={[styles.ocultarCard, { backgroundColor: colors.surface, borderColor: ocultado ? colors.riscoAlto : colors.border }]}>
+            <View style={styles.ocultarInfo}>
+              <Text style={styles.ocultarIcone}>{ocultado ? '🙈' : '👁️'}</Text>
+              <View style={styles.ocultarTextos}>
+                <Text style={[styles.ocultarTitulo, { color: colors.textPrimary }]}>
+                  {ocultado ? 'Oculto da lista de necessidades' : 'Visível na lista de necessidades'}
+                </Text>
+                <Text style={[styles.ocultarSub, { color: colors.textSecondary }]}>
+                  {ocultado
+                    ? 'Este produto não aparece mesmo sem estoque.'
+                    : 'Aparece quando estiver sem estoque.'}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={[styles.ocultarBotao, { backgroundColor: ocultado ? colors.primaryLight : colors.surfaceSecondary, borderColor: ocultado ? colors.primary : colors.border }]}
+              onPress={handleToggleOcultar}
+              disabled={salvandoOcultar}
+              activeOpacity={0.75}
+              accessibilityLabel={ocultado ? 'Mostrar na lista de necessidades' : 'Ocultar da lista de necessidades'}
+            >
+              {salvandoOcultar ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Text style={[styles.ocultarBotaoTexto, { color: ocultado ? colors.primaryDark : colors.textSecondary }]}>
+                  {ocultado ? 'Mostrar' : 'Ocultar'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
           <View style={{ height: 32 }} />
         </ScrollView>
       </SafeAreaView>
@@ -386,7 +436,7 @@ const styles = StyleSheet.create({
   vazioEmoji: { fontSize: 36 },
   vazioTexto: { fontSize: 16, textAlign: 'center' },
 
-  acoesRow: { flexDirection: 'row', gap: 12, marginTop: 28 },
+  acoesRow: { flexDirection: 'row', gap: 12, marginTop: 28, marginBottom: 16 },
   acaoBotao: { flex: 1, borderRadius: 18, paddingVertical: 18, alignItems: 'center', gap: 6 },
   acaoEmoji: { fontSize: 26 },
   acaoTexto: { color: '#FFFFFF', fontSize: 15, fontWeight: '700', textAlign: 'center', lineHeight: 20 },
@@ -416,4 +466,19 @@ const styles = StyleSheet.create({
   prevR2Trilho: { height: 6, borderRadius: 3, overflow: 'hidden', flexDirection: 'row' },
   prevR2Fill:   { height: '100%' },
   prevR2Label:  { fontSize: 11, opacity: 0.65 },
+
+  ocultarCard: {
+    borderRadius: 16, borderWidth: 1, padding: 16, gap: 12,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+      android: { elevation: 1 },
+    }),
+  },
+  ocultarInfo:     { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  ocultarIcone:    { fontSize: 26 },
+  ocultarTextos:   { flex: 1, gap: 2 },
+  ocultarTitulo:   { fontSize: 15, fontWeight: '700' },
+  ocultarSub:      { fontSize: 13, lineHeight: 18 },
+  ocultarBotao:    { borderRadius: 10, borderWidth: 1, paddingVertical: 10, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center', minHeight: 40 },
+  ocultarBotaoTexto: { fontSize: 14, fontWeight: '700' },
 });

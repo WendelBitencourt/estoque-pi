@@ -17,7 +17,7 @@ import { useTheme } from '../../theme';
 import { SkeletonLista } from '../../components/SkeletonCard';
 import { RiskBadge } from '../../components/RiskBadge';
 import { Produto, Lote, NivelRisco } from '../../services/tipos';
-import { subscribeToProdutos } from '../../services/produtosService';
+import { subscribeToProdutos, toggleOcultarNecessidades } from '../../services/produtosService';
 import { subscribeAllLotes } from '../../services/lotesService';
 import { getRiscoProduto, diasParaVencer } from '../../services/risco';
 import { getEntradasMensais } from '../../services/movimentacoesService';
@@ -40,7 +40,7 @@ function buildLista(
   const urgentes: ItemNecessidade[] = [];
   const atencaoList: ItemNecessidade[] = [];
 
-  for (const p of produtos) {
+  for (const p of produtos.filter((p) => !p.ocultarNecessidades)) {
     const ls = lotes.filter((l) => l.produtoId === p.id);
     const risco = ls.length > 0 ? getRiscoProduto(ls) : ('seguro' as NivelRisco);
     const total = ls.reduce((s, l) => s + l.quantidade, 0);
@@ -120,34 +120,56 @@ function gerarTexto(
 
 function NecessidadeItem({ item }: { item: ItemNecessidade }) {
   const { colors } = useTheme();
+
+  async function handleOcultar() {
+    try {
+      await toggleOcultarNecessidades(item.produtoId, true);
+    } catch {
+      Alert.alert('Erro', 'Não foi possível ocultar. Tente novamente.');
+    }
+  }
+
   return (
-    <TouchableOpacity
-      style={[styles.itemCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-      onPress={() => router.push(`/produto/${item.produtoId}`)}
-      activeOpacity={0.75}
-      accessibilityLabel={`${item.nome}, ${item.motivo}`}
-    >
-      <View style={[styles.itemEmojiBg, { backgroundColor: colors.surfaceSecondary }]}>
-        <Text style={styles.itemEmoji}>{item.emoji}</Text>
-      </View>
-      <View style={styles.itemInfo}>
-        <Text style={[styles.itemNome, { color: colors.textPrimary }]} numberOfLines={1}>
-          {item.nome}
-        </Text>
-        <Text style={[styles.itemEstoque, { color: colors.textSecondary }]}>
-          {item.total === 0 ? '⚠️ Sem estoque' : `${item.total} em estoque`}
-        </Text>
-        <Text
-          style={[
-            styles.itemMotivo,
-            { color: item.risco === 'risco_alto' ? colors.riscoAltoDark : colors.riscoAtencaoDark },
-          ]}
-        >
-          {item.motivo}
-        </Text>
-      </View>
-      <RiskBadge risco={item.risco} diasParaVencer={item.diasPiorLote ?? undefined} />
-    </TouchableOpacity>
+    <View style={[styles.itemCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <TouchableOpacity
+        style={styles.itemMain}
+        onPress={() => router.push(`/produto/${item.produtoId}`)}
+        activeOpacity={0.75}
+        accessibilityLabel={`${item.nome}, ${item.motivo}`}
+      >
+        <View style={[styles.itemEmojiBg, { backgroundColor: colors.surfaceSecondary }]}>
+          <Text style={styles.itemEmoji}>{item.emoji}</Text>
+        </View>
+        <View style={styles.itemInfo}>
+          <Text style={[styles.itemNome, { color: colors.textPrimary }]} numberOfLines={1}>
+            {item.nome}
+          </Text>
+          <Text style={[styles.itemEstoque, { color: colors.textSecondary }]}>
+            {item.total === 0 ? '⚠️ Sem estoque' : `${item.total} em estoque`}
+          </Text>
+          <Text
+            style={[
+              styles.itemMotivo,
+              { color: item.risco === 'risco_alto' ? colors.riscoAltoDark : colors.riscoAtencaoDark },
+            ]}
+          >
+            {item.motivo}
+          </Text>
+        </View>
+        {item.total > 0 && (
+          <RiskBadge risco={item.risco} diasParaVencer={item.diasPiorLote ?? undefined} />
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.ocultarBtn}
+        onPress={handleOcultar}
+        hitSlop={{ top: 6, bottom: 6, left: 12, right: 12 }}
+        accessibilityLabel={`Ocultar ${item.nome} da lista de necessidades`}
+      >
+        <Text style={[styles.ocultarTexto, { color: colors.textDisabled }]}>Ocultar da lista</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -380,12 +402,15 @@ const styles = StyleSheet.create({
 
   lista: { gap: 10 },
   itemCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    padding: 16, borderRadius: 16, borderWidth: 1,
+    borderRadius: 16, borderWidth: 1,
     ...Platform.select({
       ios:     { shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
       android: { elevation: 1 },
     }),
+  },
+  itemMain: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    padding: 16,
   },
   itemEmojiBg: { width: 50, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   itemEmoji:   { fontSize: 26 },
@@ -393,6 +418,8 @@ const styles = StyleSheet.create({
   itemNome:    { fontSize: 17, fontWeight: '700' },
   itemEstoque: { fontSize: 13 },
   itemMotivo:  { fontSize: 13, fontWeight: '700' },
+  ocultarBtn:  { alignSelf: 'flex-end', paddingHorizontal: 16, paddingBottom: 12 },
+  ocultarTexto: { fontSize: 12, textDecorationLine: 'underline' },
 
   // Estado vazio
   vazioCard:  { borderRadius: 20, borderWidth: 1, padding: 36, alignItems: 'center', gap: 12, marginTop: 8 },

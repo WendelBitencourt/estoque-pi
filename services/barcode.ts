@@ -1,14 +1,14 @@
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from './firebase';
-import { Categoria } from './tipos';
 import { COSMOS_TOKEN } from './config';
+import { CategoriaItem, CATEGORIAS_PADRAO } from './categoriasService';
 
 // ── Tipos públicos ────────────────────────────────────────────────────────────
 
 export interface ResultadoBarcode {
   nome: string;
   fotoUrl: string | null;
-  categoria: Categoria;
+  categoria: string;
   ean: string;
   conteudo: string | null;
   /** De onde veio o resultado */
@@ -30,17 +30,15 @@ export const EMOJI_POR_CATEGORIA: Record<string, string> = {
 
 // ── Mapeamento de categorias das APIs → Categoria do app ──────────────────────
 
-const MAPA_CATEGORIAS: { regex: RegExp; categoria: Categoria }[] = [
-  { regex: /higiene|sabonete|shampoo|condicion|dental|desodoran|absorv|fralda|beb[eê]|infantil/i, categoria: 'higiene' },
-  { regex: /limpeza|deterg|desinfet|alvejante|multiuso|amaciante|sabão|sabao/i, categoria: 'limpeza' },
-];
-
-function mapearCategoria(tags: string[]): Categoria {
+function mapearCategoria(tags: string[], categorias: CategoriaItem[]): string {
   const texto = tags.join(' ').toLowerCase();
-  for (const { regex, categoria } of MAPA_CATEGORIAS) {
-    if (regex.test(texto)) return categoria;
+  for (const cat of categorias) {
+    if (!cat.palavrasChave?.length) continue;
+    if (cat.palavrasChave.some((kw) => texto.includes(kw.toLowerCase()))) {
+      return cat.id;
+    }
   }
-  return 'alimentos';
+  return categorias[0]?.id ?? 'alimentos';
 }
 
 // ── Extração de conteúdo por embalagem ───────────────────────────────────────
@@ -95,7 +93,7 @@ async function buscarNoCacheFirestore(ean: string): Promise<ResultadoBarcode | n
 
 // ── 2. Cosmos API (produtos brasileiros) ─────────────────────────────────────
 
-async function consultarCosmos(ean: string): Promise<StatusBusca> {
+async function consultarCosmos(ean: string, categorias: CategoriaItem[]): Promise<StatusBusca> {
   if (!COSMOS_TOKEN) return { status: 'nao_encontrado' };
 
   let resp: Response;
@@ -122,7 +120,7 @@ async function consultarCosmos(ean: string): Promise<StatusBusca> {
     dados: {
       nome,
       fotoUrl:   data.thumbnail || data.avatar || null,
-      categoria: mapearCategoria(data.category_tags ?? []),
+      categoria: mapearCategoria(data.category_tags ?? [], categorias),
       ean,
       conteudo:  extrairConteudo(data.quantity, nome),
       fonte:     'cosmos',
@@ -132,7 +130,7 @@ async function consultarCosmos(ean: string): Promise<StatusBusca> {
 
 // ── 3. Open Food Facts (fallback global, gratuito) ───────────────────────────
 
-async function consultarOpenFoodFacts(ean: string): Promise<StatusBusca> {
+async function consultarOpenFoodFacts(ean: string, categorias: CategoriaItem[]): Promise<StatusBusca> {
   let resp: Response;
   try {
     resp = await fetch(
@@ -161,7 +159,7 @@ async function consultarOpenFoodFacts(ean: string): Promise<StatusBusca> {
     dados: {
       nome,
       fotoUrl:   p.image_url || null,
-      categoria: mapearCategoria(categoriaTags),
+      categoria: mapearCategoria(categoriaTags, categorias),
       ean,
       conteudo:  extrairConteudo(p.quantity, nome),
       fonte:     'openfoodfacts',
@@ -181,7 +179,10 @@ async function consultarOpenFoodFacts(ean: string): Promise<StatusBusca> {
  *
  * Nunca lança exceção. Sempre retorna um StatusBusca.
  */
-export async function buscarPorEan(ean: string): Promise<StatusBusca> {
+export async function buscarPorEan(
+  ean: string,
+  categorias: CategoriaItem[] = CATEGORIAS_PADRAO
+): Promise<StatusBusca> {
   // 1. Cache do Firestore
   try {
     const cached = await buscarNoCacheFirestore(ean);
@@ -191,17 +192,14 @@ export async function buscarPorEan(ean: string): Promise<StatusBusca> {
   }
 
   // 2. Cosmos
-  const cosmos = await consultarCosmos(ean);
+  const cosmos = await consultarCosmos(ean, categorias);
   if (cosmos.status === 'encontrado')   return cosmos;
   if (cosmos.status === 'sem_internet') return cosmos;
-  // nao_encontrado ou limite_excedido → tenta o fallback
   const cosmosStatus = cosmos.status;
 
   // 3. Open Food Facts
-  const off = await consultarOpenFoodFacts(ean);
+  const off = await consultarOpenFoodFacts(ean, categorias);
 
-  // Se OFF também não achou E Cosmos estava com limite excedido → informa o limite
-  // (mais útil para a usuária do que "produto não encontrado")
   if (off.status === 'nao_encontrado' && cosmosStatus === 'limite_excedido') {
     return { status: 'limite_excedido' };
   }

@@ -587,6 +587,15 @@ export default function BaixaScreen() {
     setTipo('saida');
   }
 
+  function novaBaixaMesmoProduto() {
+    setSucesso(false);
+    setSalvando(false);
+    setLote(null);
+    setQuantidade('1');
+    setTipo('saida');
+    setPasso(1);
+  }
+
   async function handleConfirmar() {
     if (!produto || !lote || salvando) return;
     setSalvando(true);
@@ -621,7 +630,7 @@ export default function BaixaScreen() {
         produto={produto}
         quantidade={quantidade}
         tipo={tipo}
-        onNovo={resetar}
+        onNovo={novaBaixaMesmoProduto}
         onVoltar={() => router.replace('/')}
       />
     );
@@ -689,7 +698,8 @@ const styles = StyleSheet.create({
 
   inputWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    borderRadius: 14, borderWidth: 1, paddingHorizontal: 14, height: 52,
+    borderRadius: 14, borderWidth: 1, paddingHorizontal: 14,
+    paddingVertical: 14, minHeight: 52,
   },
   inputIcn: { fontSize: 20 },
   inputTexto: { flex: 1, fontSize: 17 },
@@ -758,7 +768,7 @@ const styles = StyleSheet.create({
   qtdRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   qtdBtn: { width: 52, height: 52, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   qtdBtnTexto: { fontSize: 24, fontWeight: '500', lineHeight: 28 },
-  qtdInput: { flex: 1, height: 52, borderRadius: 14, borderWidth: 1, fontSize: 22, fontWeight: '700' },
+  qtdInput: { flex: 1, minHeight: 52, paddingVertical: 12, borderRadius: 14, borderWidth: 1, fontSize: 22, fontWeight: '700' },
   erroTexto: { fontSize: 13, fontWeight: '600' },
 
   botoesRow: { flexDirection: 'row', gap: 12 },

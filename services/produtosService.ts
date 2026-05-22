@@ -29,6 +29,7 @@ function docToProduto(d: DocumentSnapshot): Produto {
     fotoUrl: data.fotoUrl ?? undefined,
     conteudo: data.conteudo ?? undefined,
     mediaConsumoDias: data.mediaConsumoDias ?? 7,
+    ocultarNecessidades: data.ocultarNecessidades ?? false,
   };
 }
 
@@ -91,4 +92,8 @@ export async function getProdutoPorEan(ean: string): Promise<Produto | null> {
 
 export async function atualizarMediaConsumo(produtoId: string, mediaConsumoDias: number): Promise<void> {
   await updateDoc(doc(db, COL, produtoId), { mediaConsumoDias });
+}
+
+export async function toggleOcultarNecessidades(produtoId: string, ocultar: boolean): Promise<void> {
+  await updateDoc(doc(db, COL, produtoId), { ocultarNecessidades: ocultar });
 }

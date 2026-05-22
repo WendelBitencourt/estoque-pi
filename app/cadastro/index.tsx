@@ -55,7 +55,7 @@ export default function CadastroScreen() {
     const codigo = String(eanParam);
     setEan(codigo);
     setBuscando(true);
-    buscarPorEan(codigo).then((resultado) => {
+    buscarPorEan(codigo, categorias).then((resultado) => {
       setBuscando(false);
       if (resultado.status !== 'encontrado') return;
       setNome(resultado.dados.nome);
@@ -78,7 +78,7 @@ export default function CadastroScreen() {
     setBuscando(true);
     setEan(codigoEan);
 
-    const resultado = await buscarPorEan(codigoEan);
+    const resultado = await buscarPorEan(codigoEan, categorias);
     setBuscando(false);
 
     if (resultado.status === 'encontrado') {
@@ -582,7 +582,8 @@ const s = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     paddingHorizontal: 16,
-    height: 54,
+    paddingVertical: 16,
+    minHeight: 54,
   },
   inputTexto: { flex: 1, fontSize: 17 },
 

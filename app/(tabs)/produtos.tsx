@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8, gap: 14 },
   titulo: { fontSize: 30, fontWeight: '800', letterSpacing: -0.5 },
 
-  buscaWrap:  { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 14, borderWidth: 1, paddingHorizontal: 14, height: 48 },
+  buscaWrap:  { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 14, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12, minHeight: 48 },
   buscaIcn:   { fontSize: 18 },
   buscaInput: { flex: 1, fontSize: 16 },
 

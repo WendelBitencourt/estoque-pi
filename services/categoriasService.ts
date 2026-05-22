@@ -6,12 +6,31 @@ export interface CategoriaItem {
   label: string;
   emoji: string;
   padrao?: boolean;
+  palavrasChave?: string[];
 }
 
 export const CATEGORIAS_PADRAO: CategoriaItem[] = [
-  { id: 'alimentos', label: 'Alimentos', emoji: '🍎', padrao: true },
-  { id: 'higiene',   label: 'Higiene',   emoji: '🧴', padrao: true },
-  { id: 'limpeza',   label: 'Limpeza',   emoji: '🧹', padrao: true },
+  {
+    id: 'alimentos',
+    label: 'Alimentos',
+    emoji: '🍎',
+    padrao: true,
+    palavrasChave: ['alimento', 'comida', 'bebida', 'arroz', 'feijão', 'feijao', 'leite', 'farinha', 'açúcar', 'acucar', 'óleo', 'oleo', 'massa', 'biscoito', 'café', 'cafe', 'pão', 'pao', 'macarrão', 'macarrao'],
+  },
+  {
+    id: 'higiene',
+    label: 'Higiene',
+    emoji: '🧴',
+    padrao: true,
+    palavrasChave: ['higiene', 'sabonete', 'shampoo', 'condicionador', 'dental', 'desodorante', 'absorvente', 'fralda', 'bebê', 'bebe', 'infantil', 'escova', 'creme'],
+  },
+  {
+    id: 'limpeza',
+    label: 'Limpeza',
+    emoji: '🧹',
+    padrao: true,
+    palavrasChave: ['limpeza', 'detergente', 'desinfetante', 'alvejante', 'multiuso', 'amaciante', 'sabão', 'sabao', 'esponja', 'vassoura', 'rodo'],
+  },
 ];
 
 const ref = () => doc(db, 'config', 'categorias');

@@ -11,7 +11,7 @@ export interface Produto {
   fotoUrl?: string;
   conteudo?: string;
   mediaConsumoDias: number;
-
+  ocultarNecessidades?: boolean;
 }
 
 // Compatível com o tipo usado nas telas da Parte 1
