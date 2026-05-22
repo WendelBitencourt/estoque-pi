@@ -12,13 +12,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { useTheme } from '../../theme';
 import { Movimentacao, Produto, Lote, TipoMovimentacao } from '../../services/tipos';
 import { subscribeToMovimentacoes } from '../../services/movimentacoesService';
 import { subscribeToProdutos } from '../../services/produtosService';
+import { SkeletonLista } from '../../components/SkeletonCard';
 import { subscribeAllLotesRaw } from '../../services/lotesService';
 
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -433,12 +434,20 @@ export default function HistoricoScreen() {
   const [movimentacoes, setMovimentacoes] = useState<Movimentacao[]>([]);
   const [produtos, setProdutos]           = useState<Produto[]>([]);
   const [lotes, setLotes]                 = useState<Lote[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const recebido = useRef({ movs: false, prod: false, lotes: false });
+
+  function marcarRecebido(chave: 'movs' | 'prod' | 'lotes') {
+    recebido.current[chave] = true;
+    if (recebido.current.movs && recebido.current.prod && recebido.current.lotes) setCarregando(false);
+  }
 
   useEffect(() => {
-    const u1 = subscribeToMovimentacoes(setMovimentacoes);
-    const u2 = subscribeToProdutos(setProdutos);
-    const u3 = subscribeAllLotesRaw(setLotes);
-    return () => { u1(); u2(); u3(); };
+    const timer = setTimeout(() => setCarregando(false), 6000);
+    const u1 = subscribeToMovimentacoes((d) => { setMovimentacoes(d); marcarRecebido('movs'); });
+    const u2 = subscribeToProdutos((d)       => { setProdutos(d);      marcarRecebido('prod'); });
+    const u3 = subscribeAllLotesRaw((d)      => { setLotes(d);         marcarRecebido('lotes'); });
+    return () => { u1(); u2(); u3(); clearTimeout(timer); };
   }, []);
 
   const produtoMap = useMemo(() => new Map(produtos.map((p) => [p.id, p])), [produtos]);
@@ -510,10 +519,38 @@ export default function HistoricoScreen() {
         </ScrollView>
       </View>
 
-      {secoes.length === 0 ? (
+      {carregando ? (
+        <SkeletonLista n={5} />
+      ) : secoes.length === 0 ? (
         <View style={styles.vazioWrap}>
           <Text style={styles.vazioEmoji}>📭</Text>
-          <Text style={[styles.vazioTexto, { color: colors.textSecondary }]}>Nenhuma movimentação encontrada.</Text>
+          <Text style={[styles.vazioTitulo, { color: colors.textPrimary }]}>
+            {filtro === 'todos' ? 'Nenhuma movimentação ainda' : 'Nenhum registro desse tipo'}
+          </Text>
+          <Text style={[styles.vazioTexto, { color: colors.textSecondary }]}>
+            {filtro === 'todos'
+              ? 'As entradas, saídas e descartes vão aparecer aqui.'
+              : 'Tente mudar o filtro para ver outros registros.'}
+          </Text>
+          {filtro === 'todos' ? (
+            <TouchableOpacity
+              style={[styles.vazioBotao, { backgroundColor: colors.primary }]}
+              onPress={() => router.push('/entrada')}
+              activeOpacity={0.85}
+              accessibilityLabel="Registrar primeira entrada"
+            >
+              <Text style={styles.vazioBotaoTexto}>Registrar entrada</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.vazioBotao, { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border }]}
+              onPress={() => setFiltro('todos')}
+              activeOpacity={0.8}
+              accessibilityLabel="Ver todos os registros"
+            >
+              <Text style={[styles.vazioBotaoTexto, { color: colors.textPrimary }]}>Ver todos</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <SectionList
@@ -569,7 +606,7 @@ const styles = StyleSheet.create({
   resumoLabel: { fontSize: 12, fontWeight: '600', textAlign: 'center' },
 
   chipsRow:  { gap: 8, paddingBottom: 4 },
-  chip:      { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+  chip:      { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, borderWidth: 1, minHeight: 44 },
   chipEmoji: { fontSize: 14 },
   chipLabel: { fontSize: 14, fontWeight: '600' },
 
@@ -598,9 +635,12 @@ const styles = StyleSheet.create({
   movQtd:       { fontSize: 16, fontWeight: '800' },
   movData:      { fontSize: 12 },
 
-  vazioWrap:  { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  vazioEmoji: { fontSize: 40 },
-  vazioTexto: { fontSize: 16 },
+  vazioWrap:     { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 32, paddingBottom: 40 },
+  vazioEmoji:    { fontSize: 48 },
+  vazioTitulo:   { fontSize: 18, fontWeight: '700', textAlign: 'center' },
+  vazioTexto:    { fontSize: 15, textAlign: 'center', lineHeight: 22 },
+  vazioBotao:    { marginTop: 4, paddingVertical: 14, paddingHorizontal: 28, borderRadius: 14 },
+  vazioBotaoTexto: { color: '#FFF', fontSize: 16, fontWeight: '700' },
 
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },

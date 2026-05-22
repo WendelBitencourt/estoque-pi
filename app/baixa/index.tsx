@@ -18,13 +18,13 @@ import Animated, {
   FadeInDown,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../../theme';
 import { StepIndicator } from '../../components/StepIndicator';
 import { RiskBadge } from '../../components/RiskBadge';
 import { Produto, Lote } from '../../services/tipos';
-import { subscribeToProdutos } from '../../services/produtosService';
+import { subscribeToProdutos, getProdutoById } from '../../services/produtosService';
 import { atualizarMediaConsumo } from '../../services/produtosService';
 import { subscribeLotesByProduto, ajustarQuantidadeLote } from '../../services/lotesService';
 import { criarMovimentacao, recalcularMediaConsumo } from '../../services/movimentacoesService';
@@ -83,7 +83,11 @@ function Passo1({
           autoFocus
         />
         {busca.length > 0 && (
-          <TouchableOpacity onPress={() => setBusca('')}>
+          <TouchableOpacity
+            onPress={() => setBusca('')}
+            hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+            accessibilityLabel="Limpar busca"
+          >
             <Text style={{ fontSize: 16, color: colors.textDisabled }}>✕</Text>
           </TouchableOpacity>
         )}
@@ -126,7 +130,11 @@ function Passo1({
             <Text style={[styles.selecionadoNome, { color: colors.primaryDark }]}>{selecionado.nome}</Text>
             <Text style={[styles.selecionadoSub, { color: colors.primary }]}>Produto selecionado ✓</Text>
           </View>
-          <TouchableOpacity onPress={() => onSelecionar(null)}>
+          <TouchableOpacity
+            onPress={() => onSelecionar(null)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel="Trocar produto selecionado"
+          >
             <Text style={[styles.trocar, { color: colors.primary }]}>Trocar</Text>
           </TouchableOpacity>
         </View>
@@ -316,6 +324,7 @@ function Passo2({
               <TouchableOpacity
                 style={[styles.qtdBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
                 onPress={() => onQuantidade(String(Math.max(1, qtd - 1)))}
+                accessibilityLabel="Diminuir quantidade"
               >
                 <Text style={[styles.qtdBtnTexto, { color: colors.textPrimary }]}>−</Text>
               </TouchableOpacity>
@@ -334,6 +343,7 @@ function Passo2({
               <TouchableOpacity
                 style={[styles.qtdBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.border }]}
                 onPress={() => onQuantidade(String(Math.min(maxQtd, qtd + 1)))}
+                accessibilityLabel="Aumentar quantidade"
               >
                 <Text style={[styles.qtdBtnTexto, { color: colors.textPrimary }]}>＋</Text>
               </TouchableOpacity>
@@ -522,10 +532,15 @@ function Sucesso({
           style={[styles.novoBotao, { backgroundColor: colors.primary }]}
           onPress={onNovo}
           activeOpacity={0.85}
+          accessibilityLabel="Registrar outra baixa"
         >
           <Text style={styles.novoBotaoTexto}>+ Registrar outra baixa</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.voltarInicioBtn} onPress={onVoltar}>
+        <TouchableOpacity
+          style={styles.voltarInicioBtn}
+          onPress={onVoltar}
+          accessibilityLabel="Voltar para o início"
+        >
           <Text style={[styles.voltarInicioTexto, { color: colors.textSecondary }]}>Voltar para o início</Text>
         </TouchableOpacity>
       </Animated.View>
@@ -537,7 +552,9 @@ function Sucesso({
 
 export default function BaixaScreen() {
   const { colors } = useTheme();
-  const [passo, setPasso] = useState(0);
+  const { produtoId } = useLocalSearchParams<{ produtoId?: string }>();
+  // Inicia já no passo 1 quando vindo da tela de produto — evita flash do passo 0
+  const [passo, setPasso] = useState(() => (produtoId ? 1 : 0));
   const [sucesso, setSucesso] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
@@ -551,6 +568,14 @@ export default function BaixaScreen() {
     const unsub = subscribeToProdutos(setProdutos);
     return unsub;
   }, []);
+
+  // Busca o produto pelo ID recebido da tela de produto
+  useEffect(() => {
+    if (!produtoId) return;
+    getProdutoById(produtoId).then((p) => {
+      if (p) setProduto(p);
+    }).catch(() => {});
+  }, [produtoId]);
 
   function resetar() {
     setPasso(0);
@@ -617,6 +642,11 @@ export default function BaixaScreen() {
             onAvancar={() => produto && setPasso(1)}
           />
         )}
+        {passo === 1 && !produto && (
+          <View style={styles.loadingCentro}>
+            <ActivityIndicator color={colors.primary} size="large" />
+          </View>
+        )}
         {passo === 1 && produto && (
           <Passo2
             produto={produto}
@@ -627,7 +657,7 @@ export default function BaixaScreen() {
             onQuantidade={setQuantidade}
             onTipo={setTipo}
             onAvancar={() => setPasso(2)}
-            onVoltar={() => setPasso(0)}
+            onVoltar={() => produtoId ? router.back() : setPasso(0)}
           />
         )}
         {passo === 2 && produto && lote && (
@@ -652,6 +682,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   indicadorWrap: { paddingHorizontal: 24, paddingVertical: 20, borderBottomWidth: 1 },
   passoContainer: { flex: 1, paddingHorizontal: 20 },
+  loadingCentro: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   passoWrap: { flex: 1, paddingTop: 24, paddingBottom: 16, gap: 16 },
   passoTitulo: { fontSize: 26, fontWeight: '800', letterSpacing: -0.4 },
   passoSub: { fontSize: 16, lineHeight: 22, marginTop: -8 },

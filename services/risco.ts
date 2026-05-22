@@ -1,6 +1,5 @@
 import { NivelRisco } from './tipos';
 
-// Limiares em dias — serão configuráveis via Firestore na Parte 3
 const RISCO_ALTO_DIAS = 7;
 const ATENCAO_DIAS = 30;
 

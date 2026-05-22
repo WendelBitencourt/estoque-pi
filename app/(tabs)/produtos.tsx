@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { SkeletonLista } from '../../components/SkeletonCard';
 import { useTheme } from '../../theme';
 import { Produto, Lote, Categoria } from '../../services/tipos';
 import { subscribeToProdutos } from '../../services/produtosService';
@@ -44,6 +45,7 @@ function ProdutoCard({ info }: { info: ProdutoInfo }) {
       style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
       onPress={() => router.push(`/produto/${produto.id}`)}
       activeOpacity={0.75}
+      accessibilityLabel={`${produto.nome}, ${CATEGORIA_LABEL[produto.categoria]}${info.totalEstoque > 0 ? `, ${info.totalEstoque} em estoque` : ', aguardando doação'}`}
     >
       <View style={[styles.emojiBg, { backgroundColor: colors.surfaceSecondary }]}>
         {produto.fotoUrl ? (
@@ -76,11 +78,19 @@ export default function ProdutosScreen() {
   const [filtroCategoria, setFiltroCategoria] = useState<FiltroCategoria>(null);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [lotes, setLotes] = useState<Lote[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const recebido = useRef({ produtos: false, lotes: false });
+
+  function marcarRecebido(chave: 'produtos' | 'lotes') {
+    recebido.current[chave] = true;
+    if (recebido.current.produtos && recebido.current.lotes) setCarregando(false);
+  }
 
   useEffect(() => {
-    const u1 = subscribeToProdutos(setProdutos);
-    const u2 = subscribeAllLotes(setLotes);
-    return () => { u1(); u2(); };
+    const timer = setTimeout(() => setCarregando(false), 6000);
+    const u1 = subscribeToProdutos((d) => { setProdutos(d); marcarRecebido('produtos'); });
+    const u2 = subscribeAllLotes((d)   => { setLotes(d);    marcarRecebido('lotes'); });
+    return () => { u1(); u2(); clearTimeout(timer); };
   }, []);
 
   const itens = useMemo<ProdutoInfo[]>(() => {
@@ -144,14 +154,57 @@ export default function ProdutosScreen() {
         </View>
       </View>
 
-      {itens.length === 0 ? (
+      {carregando ? (
+        <SkeletonLista n={5} />
+      ) : itens.length === 0 ? (
         <View style={styles.vazioWrap}>
-          <Text style={styles.vazioEmoji}>✅</Text>
-          <Text style={[styles.vazioTexto, { color: colors.textSecondary }]}>
-            {busca || filtroCategoria
-              ? 'Nenhum produto encontrado.'
-              : 'Todos os produtos têm doações registradas.'}
-          </Text>
+          {produtos.length === 0 ? (
+            <>
+              <Text style={styles.vazioEmoji}>📋</Text>
+              <Text style={[styles.vazioTitulo, { color: colors.textPrimary }]}>
+                Nenhum produto cadastrado
+              </Text>
+              <Text style={[styles.vazioTexto, { color: colors.textSecondary }]}>
+                Cadastre os produtos que a Casa da Criança recebe em doação.
+              </Text>
+              <TouchableOpacity
+                style={[styles.vazioBotao, { backgroundColor: colors.primary }]}
+                onPress={() => router.push('/cadastro')}
+                activeOpacity={0.85}
+                accessibilityLabel="Cadastrar primeiro produto"
+              >
+                <Text style={styles.vazioBotaoTexto}>Cadastrar produto</Text>
+              </TouchableOpacity>
+            </>
+          ) : busca || filtroCategoria ? (
+            <>
+              <Text style={styles.vazioEmoji}>🔍</Text>
+              <Text style={[styles.vazioTitulo, { color: colors.textPrimary }]}>
+                Nenhum produto encontrado
+              </Text>
+              <Text style={[styles.vazioTexto, { color: colors.textSecondary }]}>
+                Tente ajustar a busca ou remover os filtros.
+              </Text>
+              <TouchableOpacity
+                style={[styles.vazioBotao, { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border }]}
+                onPress={() => { setBusca(''); setFiltroCategoria(null); }}
+                activeOpacity={0.8}
+                accessibilityLabel="Limpar busca e filtros"
+              >
+                <Text style={[styles.vazioBotaoTexto, { color: colors.textPrimary }]}>Limpar busca</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <Text style={styles.vazioEmoji}>✅</Text>
+              <Text style={[styles.vazioTitulo, { color: colors.textPrimary }]}>
+                Tudo com estoque!
+              </Text>
+              <Text style={[styles.vazioTexto, { color: colors.textSecondary }]}>
+                Todos os produtos têm doações registradas.
+              </Text>
+            </>
+          )}
         </View>
       ) : (
         <FlatList
@@ -187,7 +240,7 @@ const styles = StyleSheet.create({
   buscaInput: { flex: 1, fontSize: 16 },
 
   chipsRow:  { flexDirection: 'row', gap: 8 },
-  chip:      { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+  chip:      { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, borderWidth: 1, minHeight: 44 },
   chipEmoji: { fontSize: 14 },
   chipLabel: { fontSize: 14, fontWeight: '600' },
 
@@ -211,9 +264,12 @@ const styles = StyleSheet.create({
   badge:      { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5 },
   badgeTexto: { fontSize: 13, fontWeight: '700' },
 
-  vazioWrap:  { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  vazioEmoji: { fontSize: 40 },
-  vazioTexto: { fontSize: 16 },
+  vazioWrap:     { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 32, paddingBottom: 80 },
+  vazioEmoji:    { fontSize: 48 },
+  vazioTitulo:   { fontSize: 18, fontWeight: '700', textAlign: 'center' },
+  vazioTexto:    { fontSize: 15, textAlign: 'center', lineHeight: 22 },
+  vazioBotao:    { marginTop: 4, paddingVertical: 14, paddingHorizontal: 28, borderRadius: 14 },
+  vazioBotaoTexto: { color: '#FFF', fontSize: 16, fontWeight: '700' },
 
   fabWrap: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 20, paddingBottom: 20, paddingTop: 12 },
   fab:     { borderRadius: 18, paddingVertical: 18, alignItems: 'center' },

@@ -257,6 +257,8 @@ export default function LoginScreen() {
               onPress={handleLoginAnonimo}
               disabled={carregando}
               activeOpacity={0.6}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityLabel="Entrar como visitante em modo demonstração"
             >
               <Text style={[styles.visitanteTexto, { color: colors.textDisabled }]}>
                 Entrar como visitante · modo demonstração

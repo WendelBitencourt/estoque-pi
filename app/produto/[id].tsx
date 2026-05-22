@@ -304,16 +304,18 @@ export default function ProdutoDetalheScreen() {
           <View style={styles.acoesRow}>
             <TouchableOpacity
               style={[styles.acaoBotao, { backgroundColor: colors.primary }]}
-              onPress={() => router.push('/entrada')}
+              onPress={() => router.push(`/entrada?produtoId=${produto.id}`)}
               activeOpacity={0.85}
+              accessibilityLabel="Registrar entrada de doação"
             >
               <Text style={styles.acaoEmoji}>📥</Text>
               <Text style={styles.acaoTexto}>Registrar{'\n'}entrada</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.acaoBotao, { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border }]}
-              onPress={() => router.push('/baixa')}
+              onPress={() => router.push(`/baixa?produtoId=${produto.id}`)}
               activeOpacity={0.85}
+              accessibilityLabel="Registrar saída de produto"
             >
               <Text style={styles.acaoEmoji}>📤</Text>
               <Text style={[styles.acaoTexto, { color: colors.textPrimary }]}>Registrar{'\n'}saída</Text>

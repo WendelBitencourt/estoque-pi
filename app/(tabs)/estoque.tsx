@@ -12,7 +12,8 @@ import {
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { SkeletonLista } from '../../components/SkeletonCard';
 import { useTheme } from '../../theme';
 import { RiskBadge } from '../../components/RiskBadge';
 import { Produto, Lote, NivelRisco, Categoria } from '../../services/tipos';
@@ -51,6 +52,7 @@ function ProdutoItem({ item, index = 0 }: { item: ItemInfo; index?: number }) {
         style={[styles.itemCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
         onPress={() => router.push(`/produto/${item.produto.id}`)}
         activeOpacity={0.75}
+        accessibilityLabel={`${item.produto.nome}, ${item.total} em estoque, lote ${item.codigoLote}`}
       >
         <View style={[styles.itemEmojiBg, { backgroundColor: colors.surfaceSecondary }]}>
           {item.produto.fotoUrl ? (
@@ -83,11 +85,19 @@ export default function EstoqueScreen() {
   const [filtroCategoria, setFiltroCategoria] = useState<FiltroCategoria>(null);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [lotes, setLotes] = useState<Lote[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const recebido = useRef({ produtos: false, lotes: false });
+
+  function marcarRecebido(chave: 'produtos' | 'lotes') {
+    recebido.current[chave] = true;
+    if (recebido.current.produtos && recebido.current.lotes) setCarregando(false);
+  }
 
   useEffect(() => {
-    const u1 = subscribeToProdutos(setProdutos);
-    const u2 = subscribeAllLotes(setLotes);
-    return () => { u1(); u2(); };
+    const timer = setTimeout(() => setCarregando(false), 6000); // fallback
+    const u1 = subscribeToProdutos((d) => { setProdutos(d); marcarRecebido('produtos'); });
+    const u2 = subscribeAllLotes((d)   => { setLotes(d);    marcarRecebido('lotes'); });
+    return () => { u1(); u2(); clearTimeout(timer); };
   }, []);
 
   const todosItens = useMemo<ItemInfo[]>(() => {
@@ -186,14 +196,47 @@ export default function EstoqueScreen() {
         </ScrollView>
       </View>
 
-      {secoes.length === 0 ? (
+      {carregando ? (
+        <SkeletonLista n={5} />
+      ) : secoes.length === 0 ? (
         <View style={styles.vazioWrap}>
-          <Text style={styles.vazioEmoji}>{lotes.length === 0 ? '📦' : '🔍'}</Text>
-          <Text style={[styles.vazioTexto, { color: colors.textSecondary }]}>
-            {lotes.length === 0
-              ? 'Nenhuma doação registrada ainda.'
-              : 'Nenhum item encontrado para esse filtro.'}
-          </Text>
+          {lotes.length === 0 ? (
+            <>
+              <Text style={styles.vazioEmoji}>📦</Text>
+              <Text style={[styles.vazioTitulo, { color: colors.textPrimary }]}>
+                Nenhuma doação registrada
+              </Text>
+              <Text style={[styles.vazioTexto, { color: colors.textSecondary }]}>
+                Registre a primeira entrada para acompanhar o estoque.
+              </Text>
+              <TouchableOpacity
+                style={[styles.vazioBotao, { backgroundColor: colors.primary }]}
+                onPress={() => router.push('/entrada')}
+                activeOpacity={0.85}
+                accessibilityLabel="Registrar primeira entrada"
+              >
+                <Text style={styles.vazioBotaoTexto}>Registrar entrada</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <Text style={styles.vazioEmoji}>🔍</Text>
+              <Text style={[styles.vazioTitulo, { color: colors.textPrimary }]}>
+                Nenhum item encontrado
+              </Text>
+              <Text style={[styles.vazioTexto, { color: colors.textSecondary }]}>
+                Tente ajustar os filtros ou a busca.
+              </Text>
+              <TouchableOpacity
+                style={[styles.vazioBotao, { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border }]}
+                onPress={() => { setBusca(''); setFiltroRisco('todos'); setFiltroCategoria(null); }}
+                activeOpacity={0.8}
+                accessibilityLabel="Limpar filtros"
+              >
+                <Text style={[styles.vazioBotaoTexto, { color: colors.textPrimary }]}>Limpar filtros</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       ) : (
         <SectionList
@@ -229,7 +272,7 @@ const styles = StyleSheet.create({
   buscaInput: { flex: 1, fontSize: 16 },
 
   chipsRow: { gap: 8, paddingBottom: 4 },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, borderWidth: 1, minHeight: 44 },
   chipEmoji: { fontSize: 14 },
   chipLabel: { fontSize: 14, fontWeight: '600' },
   chipDivider: { width: 1, backgroundColor: 'transparent', marginHorizontal: 2 },
@@ -256,7 +299,10 @@ const styles = StyleSheet.create({
   itemLote: { fontSize: 13 },
   itemQtd: { fontSize: 13 },
 
-  vazioWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  vazioEmoji: { fontSize: 40 },
-  vazioTexto: { fontSize: 16 },
+  vazioWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 32, paddingBottom: 40 },
+  vazioEmoji: { fontSize: 48 },
+  vazioTitulo: { fontSize: 18, fontWeight: '700', textAlign: 'center' },
+  vazioTexto: { fontSize: 15, textAlign: 'center', lineHeight: 22 },
+  vazioBotao: { marginTop: 4, paddingVertical: 14, paddingHorizontal: 28, borderRadius: 14 },
+  vazioBotaoTexto: { color: '#FFF', fontSize: 16, fontWeight: '700' },
 });

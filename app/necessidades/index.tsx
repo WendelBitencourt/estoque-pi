@@ -12,8 +12,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useTheme } from '../../theme';
+import { SkeletonLista } from '../../components/SkeletonCard';
 import { RiskBadge } from '../../components/RiskBadge';
 import { Produto, Lote, NivelRisco } from '../../services/tipos';
 import { subscribeToProdutos } from '../../services/produtosService';
@@ -156,11 +157,19 @@ export default function NecessidadesScreen() {
   const [lotes, setLotes] = useState<Lote[]>([]);
   const [sugestao, setSugestao] = useState<string | null>(null);
   const [carregandoSugestao, setCarregandoSugestao] = useState(true);
+  const [carregando, setCarregando] = useState(true);
+  const recebido = useRef({ produtos: false, lotes: false });
+
+  function marcarRecebido(chave: 'produtos' | 'lotes') {
+    recebido.current[chave] = true;
+    if (recebido.current.produtos && recebido.current.lotes) setCarregando(false);
+  }
 
   useEffect(() => {
-    const u1 = subscribeToProdutos(setProdutos);
-    const u2 = subscribeAllLotes(setLotes);
-    return () => { u1(); u2(); };
+    const timer = setTimeout(() => setCarregando(false), 6000);
+    const u1 = subscribeToProdutos((d) => { setProdutos(d); marcarRecebido('produtos'); });
+    const u2 = subscribeAllLotes((d)   => { setLotes(d);    marcarRecebido('lotes'); });
+    return () => { u1(); u2(); clearTimeout(timer); };
   }, []);
 
   // Busca sugestão estratégica do K-Means em background
@@ -260,8 +269,10 @@ export default function NecessidadesScreen() {
           <Text style={[styles.copiarTexto, { color: colors.textSecondary }]}>📋  Copiar texto</Text>
         </TouchableOpacity>
 
-        {/* Lista vazia */}
-        {total === 0 ? (
+        {/* Lista vazia / carregando */}
+        {carregando ? (
+          <SkeletonLista n={3} />
+        ) : total === 0 ? (
           <View style={[styles.vazioCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text style={styles.vazioEmoji}>🎉</Text>
             <Text style={[styles.vazioTitulo, { color: colors.textPrimary }]}>Estoque em dia!</Text>

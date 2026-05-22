@@ -232,7 +232,11 @@ export default function CadastroScreen() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => router.replace('/')}>
+          <TouchableOpacity
+            onPress={() => router.replace('/')}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityLabel="Voltar para o início"
+          >
             <Text style={[s.linkTexto, { color: colors.primary }]}>
               Voltar para o início
             </Text>
@@ -392,6 +396,7 @@ export default function CadastroScreen() {
                     ]}
                     onPress={() => setCategoria(cat.valor)}
                     activeOpacity={0.75}
+                    accessibilityLabel={`Categoria: ${cat.label}${ativo ? ', selecionada' : ''}`}
                   >
                     <Text style={s.categoriaEmoji}>{cat.emoji}</Text>
                     <Text
@@ -599,6 +604,7 @@ const s = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 14,
     borderWidth: 1,
+    minHeight: 44,
   },
   categoriaEmoji: { fontSize: 20 },
   categoriaLabel: { fontSize: 15, fontWeight: '600' },

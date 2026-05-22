@@ -24,8 +24,6 @@ import {
 // ── tipos locais ─────────────────────────────────────────────────────────────
 
 type ThemeMode = 'auto' | 'light' | 'dark';
-type DiasRiscoAlto = 3 | 7 | 10;
-type DiasAtencao = 15 | 30 | 45;
 
 // ── subcomponentes ────────────────────────────────────────────────────────────
 
@@ -89,6 +87,7 @@ function ItemNavegacao({
       style={[styles.itemWrap, { borderBottomColor: colors.divider }]}
       onPress={onPress}
       activeOpacity={0.7}
+      accessibilityLabel={descricao ? `${label}: ${descricao}` : label}
     >
       <View style={styles.itemTextos}>
         <Text style={[styles.itemLabel, { color: danger ? colors.riscoAlto : colors.textPrimary }]}>
@@ -140,6 +139,7 @@ function SeletorOpcoes<T extends string | number>({
               ]}
               onPress={() => onSelecionar(op.valor)}
               activeOpacity={0.75}
+              accessibilityLabel={`${label}: ${op.label}${ativo ? ', selecionado' : ''}`}
             >
               <Text style={[styles.seletorChipTexto, { color: ativo ? '#FFF' : colors.textSecondary }]}>
                 {op.label}
@@ -248,13 +248,6 @@ export default function ConfiguracoesScreen() {
     await salvarConfig({ resumoDiario: notifDiarias, horaResumo, alertaEstoqueZerado: ativar });
   }
 
-  // Estoque
-  const [diasRiscoAlto, setDiasRiscoAlto] = useState<DiasRiscoAlto>(7);
-  const [diasAtencao, setDiasAtencao] = useState<DiasAtencao>(30);
-
-  // Machine Learning
-  const [mlAtivado, setMlAtivado] = useState(false);
-
   function avisoEmBreve(funcionalidade: string) {
     Alert.alert(funcionalidade, 'Esta funcionalidade estará disponível na próxima fase do app.', [{ text: 'OK' }]);
   }
@@ -323,26 +316,6 @@ export default function ConfiguracoesScreen() {
         {/* ── Estoque ── */}
         <SecaoHeader titulo="ESTOQUE" emoji="📦" />
         <Cartao>
-          <SeletorOpcoes
-            label="Dias para classificar como 'Risco alto'"
-            opcoes={[
-              { valor: 3 as DiasRiscoAlto, label: '3 dias' },
-              { valor: 7 as DiasRiscoAlto, label: '7 dias' },
-              { valor: 10 as DiasRiscoAlto, label: '10 dias' },
-            ]}
-            selecionado={diasRiscoAlto}
-            onSelecionar={setDiasRiscoAlto}
-          />
-          <SeletorOpcoes
-            label="Dias para classificar como 'Atenção'"
-            opcoes={[
-              { valor: 15 as DiasAtencao, label: '15 dias' },
-              { valor: 30 as DiasAtencao, label: '30 dias' },
-              { valor: 45 as DiasAtencao, label: '45 dias' },
-            ]}
-            selecionado={diasAtencao}
-            onSelecionar={setDiasAtencao}
-          />
           <ItemNavegacao
             label="Categorias de produtos"
             descricao="Adicionar ou renomear categorias"
@@ -382,39 +355,6 @@ export default function ConfiguracoesScreen() {
               })}
             </View>
           </View>
-        </Cartao>
-
-        {/* ── Machine Learning ── */}
-        <SecaoHeader titulo="INTELIGÊNCIA ARTIFICIAL" emoji="🤖" />
-        <Cartao>
-          <ItemToggle
-            label="Sugestões inteligentes"
-            descricao="Sugere automaticamente produtos que precisam de reposição com base no histórico"
-            valor={mlAtivado}
-            onChange={(v) => {
-              setMlAtivado(v);
-              if (v) Alert.alert('Em breve!', 'As sugestões inteligentes estarão disponíveis na próxima fase do app.', [{ text: 'OK' }]);
-            }}
-          />
-          {mlAtivado && (
-            <View style={[styles.mlAviso, { backgroundColor: colors.primaryLight }]}>
-              <Text style={styles.mlAvisoEmoji}>💡</Text>
-              <Text style={[styles.mlAvisoTexto, { color: colors.primaryDark }]}>
-                O sistema aprenderá com o histórico de doações e consumo para antecipar necessidades.
-              </Text>
-            </View>
-          )}
-          <ItemNavegacao
-            label="Como funciona a IA?"
-            descricao="Entenda como as sugestões são geradas"
-            onPress={() =>
-              Alert.alert(
-                'Sugestões inteligentes',
-                'O sistema analisa o histórico de doações, consumo e validades para sugerir quais produtos priorizar na lista de necessidades.\n\nEsta funcionalidade usará Machine Learning e estará disponível em breve.',
-                [{ text: 'Entendi' }]
-              )
-            }
-          />
         </Cartao>
 
         {/* ── Conta e segurança ── */}
@@ -566,6 +506,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 12,
     borderWidth: 1,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   seletorChipTexto: { fontSize: 15, fontWeight: '600' },
 
@@ -580,17 +522,6 @@ const styles = StyleSheet.create({
   },
   temaEmoji: { fontSize: 22 },
   temaLabel: { fontSize: 13, fontWeight: '700' },
-
-  mlAviso: {
-    flexDirection: 'row',
-    gap: 10,
-    margin: 14,
-    marginTop: 0,
-    padding: 14,
-    borderRadius: 12,
-  },
-  mlAvisoEmoji: { fontSize: 18 },
-  mlAvisoTexto: { flex: 1, fontSize: 14, lineHeight: 20 },
 
   rodape: {
     alignItems: 'center',

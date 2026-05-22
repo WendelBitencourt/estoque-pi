@@ -10,9 +10,10 @@ import {
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useTheme } from '../../theme';
 import { RiskBadge } from '../../components/RiskBadge';
+import { SkeletonLista } from '../../components/SkeletonCard';
 import { Produto, Lote } from '../../services/tipos';
 import { subscribeToProdutos } from '../../services/produtosService';
 import { subscribeAllLotes } from '../../services/lotesService';
@@ -56,11 +57,19 @@ export default function InicioScreen() {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [lotes, setLotes]       = useState<Lote[]>([]);
   const [previsoes, setPrevisoes] = useState<Record<string, number>>({});
+  const [carregando, setCarregando] = useState(true);
+  const recebido = useRef({ produtos: false, lotes: false });
+
+  function marcarRecebido(chave: 'produtos' | 'lotes') {
+    recebido.current[chave] = true;
+    if (recebido.current.produtos && recebido.current.lotes) setCarregando(false);
+  }
 
   useEffect(() => {
-    const u1 = subscribeToProdutos(setProdutos);
-    const u2 = subscribeAllLotes(setLotes);
-    return () => { u1(); u2(); };
+    const timer = setTimeout(() => setCarregando(false), 6000);
+    const u1 = subscribeToProdutos((d) => { setProdutos(d); marcarRecebido('produtos'); });
+    const u2 = subscribeAllLotes((d)   => { setLotes(d);    marcarRecebido('lotes'); });
+    return () => { u1(); u2(); clearTimeout(timer); };
   }, []);
 
   const produtoMap = useMemo(() => {
@@ -147,6 +156,7 @@ export default function InicioScreen() {
                 style={[styles.alertaBanner, { backgroundColor: colors.riscoAltoLight, borderColor: colors.riscoAlto }]}
                 onPress={() => router.push('/estoque')}
                 activeOpacity={0.8}
+                accessibilityLabel={`Alerta de desperdício: ${unidadesEmRisco} ${unidadesEmRisco === 1 ? 'unidade' : 'unidades'} em risco de vencer. Toque para ver o estoque.`}
               >
                 <Text style={styles.alertaIcone}>⚠️</Text>
                 <View style={styles.alertaTextos}>
@@ -201,13 +211,19 @@ export default function InicioScreen() {
         <View style={styles.secaoHeader}>
           <Text style={[styles.secaoTitulo, { color: colors.textSecondary }]}>REQUER ATENÇÃO</Text>
           {produtosAtencao.length > 0 && (
-            <TouchableOpacity onPress={() => router.push('/estoque')}>
+            <TouchableOpacity
+              onPress={() => router.push('/estoque')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel="Ver todos os itens que requerem atenção"
+            >
               <Text style={[styles.verTodos, { color: colors.primary }]}>Ver todos</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        {produtosAtencao.length === 0 ? (
+        {carregando ? (
+          <SkeletonLista n={3} />
+        ) : produtosAtencao.length === 0 ? (
           <Animated.View entering={FadeIn.duration(400)} style={[styles.vazio, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text style={styles.vazioEmoji}>{totalLotes === 0 ? '📦' : '✅'}</Text>
             <Text style={[styles.vazioTexto, { color: colors.textSecondary }]}>
@@ -215,6 +231,16 @@ export default function InicioScreen() {
                 ? 'Nenhuma doação registrada ainda.'
                 : 'Tudo em ordem! Nenhum produto em risco.'}
             </Text>
+            {totalLotes === 0 && (
+              <TouchableOpacity
+                style={[styles.vazioBtn, { backgroundColor: colors.primary }]}
+                onPress={() => router.push('/entrada')}
+                activeOpacity={0.85}
+                accessibilityLabel="Registrar primeira entrada"
+              >
+                <Text style={styles.vazioBtnTexto}>Registrar entrada</Text>
+              </TouchableOpacity>
+            )}
           </Animated.View>
         ) : (
           <View style={styles.lista}>
@@ -227,6 +253,7 @@ export default function InicioScreen() {
                   style={[styles.itemCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
                   onPress={() => router.push(`/produto/${produto.id}`)}
                   activeOpacity={0.75}
+                  accessibilityLabel={`${produto.nome}, ${total} em estoque${diasPiorLote !== null ? `, vence em ${diasPiorLote} dias` : ''}`}
                 >
                   <View style={[styles.itemEmojiBg, { backgroundColor: colors.surfaceSecondary }]}>
                     {produto.fotoUrl
@@ -326,6 +353,8 @@ const styles = StyleSheet.create({
   vazio:      { borderRadius: 16, borderWidth: 1, padding: 28, alignItems: 'center', gap: 10 },
   vazioEmoji: { fontSize: 36 },
   vazioTexto: { fontSize: 16, textAlign: 'center', lineHeight: 22 },
+  vazioBtn:   { marginTop: 4, paddingVertical: 13, paddingHorizontal: 26, borderRadius: 14 },
+  vazioBtnTexto: { color: '#FFF', fontSize: 15, fontWeight: '700' },
 
   botaoPrincipal:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 32, paddingVertical: 20, borderRadius: 20 },
   botaoSecundario: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 12, paddingVertical: 18, borderRadius: 20, borderWidth: 1.5 },
