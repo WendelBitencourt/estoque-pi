@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '../../theme';
 import { StepIndicator } from '../../components/StepIndicator';
 import { BarcodeScanner } from '../../components/BarcodeScanner';
@@ -41,6 +42,24 @@ function validarData(data: string): boolean {
   if (m < 1 || m > 12 || d < 1 || d > 31) return false;
   const date = new Date(y, m - 1, d);
   return date > new Date();
+}
+
+function dataParaDate(data: string): Date {
+  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(data)) {
+    // padrão: 7 dias no futuro para o picker abrir num lugar útil
+    const futuro = new Date();
+    futuro.setDate(futuro.getDate() + 7);
+    return futuro;
+  }
+  const [d, m, y] = data.split('/').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function dateParaData(date: Date): string {
+  const d = String(date.getDate()).padStart(2, '0');
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const y = date.getFullYear();
+  return `${d}/${m}/${y}`;
 }
 
 // ── Passo 1: escolher produto ────────────────────────────────────────────────
@@ -255,17 +274,38 @@ function Passo2({
   onVoltar: () => void;
 }) {
   const { colors } = useTheme();
+  const scrollRef = useRef<ScrollView>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const qtdValida = Number(quantidade) > 0;
   const dataValida = validarData(validade);
   const podeAvancar = qtdValida && dataValida;
+
+  function handleDatePickerChange(_event: unknown, selectedDate?: Date) {
+    setShowDatePicker(false);
+    if (selectedDate) onValidade(dateParaData(selectedDate));
+  }
+
+  // Garante que o campo de data fique visível acima do teclado quando ganha foco.
+  // O delay espera o Android terminar de redimensionar a tela com o teclado aberto.
+  function handleDataFocus() {
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300);
+  }
+
+  // Data mínima do picker = amanhã (não faz sentido cadastrar lote já vencido)
+  const dataMinimaPicker = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  })();
 
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={[styles.passoWrap, { flexGrow: 1, paddingBottom: 8 }]} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} contentContainerStyle={[styles.passoWrap, { flexGrow: 1, paddingBottom: 8 }]} keyboardShouldPersistTaps="handled">
         <Text style={[styles.passoTitulo, { color: colors.textPrimary }]}>
           Quantos vieram?
         </Text>
@@ -322,25 +362,50 @@ function Passo2({
           <Text style={[styles.campoLabel, { color: colors.textSecondary }]}>
             Data de validade *
           </Text>
-          <View style={[styles.inputWrap, { backgroundColor: colors.surface, borderColor: dataValida ? colors.riscoSeguro : colors.border }]}>
-            <Text style={styles.inputIcn}>📅</Text>
-            <TextInput
-              style={[styles.input, { color: colors.textPrimary }]}
-              placeholder="DD/MM/AAAA"
-              placeholderTextColor={colors.textDisabled}
-              value={validade}
-              onChangeText={(t) => onValidade(mascararData(t))}
-              keyboardType="numeric"
-              maxLength={10}
-            />
-            {dataValida && <Text style={{ fontSize: 18 }}>✅</Text>}
+          <View style={styles.dataRow}>
+            <View style={[styles.inputWrap, styles.dataInputWrap, { backgroundColor: colors.surface, borderColor: dataValida ? colors.riscoSeguro : colors.border }]}>
+              <Text style={styles.inputIcn}>📅</Text>
+              <TextInput
+                style={[styles.input, { color: colors.textPrimary }]}
+                placeholder="DD/MM/AAAA"
+                placeholderTextColor={colors.textDisabled}
+                value={validade}
+                onChangeText={(t) => onValidade(mascararData(t))}
+                onFocus={handleDataFocus}
+                keyboardType="numeric"
+                maxLength={10}
+              />
+              {dataValida && <Text style={{ fontSize: 18 }}>✅</Text>}
+            </View>
+            <TouchableOpacity
+              style={[styles.dataPickerBtn, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
+              onPress={() => setShowDatePicker(true)}
+              activeOpacity={0.75}
+              accessibilityLabel="Abrir calendário para escolher a data"
+            >
+              <Text style={styles.dataPickerEmoji}>📆</Text>
+            </TouchableOpacity>
           </View>
+          <Text style={[styles.dataDica, { color: colors.textDisabled }]}>
+            Digite ou toque no calendário 📆
+          </Text>
           {validade.length === 10 && !dataValida && (
             <Text style={[styles.erroTexto, { color: colors.riscoAlto }]}>
               Data inválida ou já vencida
             </Text>
           )}
         </View>
+
+        {showDatePicker && (
+          <DateTimePicker
+            value={dataParaDate(validade)}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            minimumDate={dataMinimaPicker}
+            onChange={handleDatePickerChange}
+            locale="pt-BR"
+          />
+        )}
 
         {/* Badge de risco ML */}
         {carregandoRisco && (
@@ -808,6 +873,18 @@ const styles = StyleSheet.create({
   campoWrap: { gap: 8 },
   campoLabel: { fontSize: 14, fontWeight: '700', letterSpacing: 0.3 },
   erroTexto: { fontSize: 13, fontWeight: '600' },
+
+  dataRow: { flexDirection: 'row', gap: 10, alignItems: 'stretch' },
+  dataInputWrap: { flex: 1 },
+  dataPickerBtn: {
+    width: 60,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dataPickerEmoji: { fontSize: 26 },
+  dataDica: { fontSize: 12, marginTop: -2 },
 
   qtdRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   qtdBtn: {

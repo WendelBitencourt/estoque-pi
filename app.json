@@ -39,7 +39,8 @@
           "color": "#0e7490",
           "sounds": []
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "router": {},
