@@ -12,7 +12,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect } from 'react';
 import * as Google from 'expo-auth-session/providers/google';
+import { makeRedirectUri } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
+import Constants from 'expo-constants';
 import { useTheme } from '../theme';
 import { loginComGoogle, loginComEmail, criarContaComEmail, redefinirSenha, loginAnonimo } from '../services/authService';
 
@@ -20,6 +22,21 @@ WebBrowser.maybeCompleteAuthSession();
 
 const GOOGLE_WEB_CLIENT_ID =
   '248660348216-5msumruutuim8mgft2b6ebu2h6p7oe1d.apps.googleusercontent.com';
+const GOOGLE_ANDROID_CLIENT_ID =
+  '248660348216-qsdl0uf4cd068hj1d8qmr0ho304sqn3a.apps.googleusercontent.com';
+
+// No Expo Go usa o client Web (proxy do Expo); em builds nativos Android usa o client Android
+const isExpoGo =
+  Constants.executionEnvironment === 'storeClient' ||
+  (Constants as any).appOwnership === 'expo';
+
+// Força o redirect URI a usar o scheme registrado no AndroidManifest
+const nativeRedirectUri = makeRedirectUri({ scheme: 'estoque-pi' });
+
+const googleAuthConfig =
+  Platform.OS === 'android' && !isExpoGo
+    ? { androidClientId: GOOGLE_ANDROID_CLIENT_ID, redirectUri: nativeRedirectUri }
+    : { clientId: GOOGLE_WEB_CLIENT_ID };
 
 type Modo = 'inicial' | 'email' | 'criar' | 'resetSenha';
 
@@ -33,9 +50,7 @@ export default function LoginScreen() {
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: GOOGLE_WEB_CLIENT_ID,
-  });
+  const [request, response, promptAsync] = Google.useAuthRequest(googleAuthConfig);
 
   useEffect(() => {
     if (response?.type === 'success') {
