@@ -190,6 +190,7 @@ function Passo2({
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={[styles.passoWrap, { flexGrow: 1, paddingBottom: 8 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -399,6 +400,7 @@ function Passo3({
   return (
     <View style={{ flex: 1 }}>
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={[styles.passoWrap, { flexGrow: 1, paddingBottom: 8 }]}
         showsVerticalScrollIndicator={false}
       >

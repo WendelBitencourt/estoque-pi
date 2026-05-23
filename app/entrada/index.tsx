@@ -305,7 +305,7 @@ function Passo2({
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView ref={scrollRef} contentContainerStyle={[styles.passoWrap, { flexGrow: 1, paddingBottom: 8 }]} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={[styles.passoWrap, { flexGrow: 1, paddingBottom: 8 }]} keyboardShouldPersistTaps="handled">
         <Text style={[styles.passoTitulo, { color: colors.textPrimary }]}>
           Quantos vieram?
         </Text>
@@ -485,6 +485,7 @@ function Passo3({
   return (
     <View style={{ flex: 1 }}>
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={[styles.passoWrap, { flexGrow: 1, paddingBottom: 8 }]}
         showsVerticalScrollIndicator={false}
       >
