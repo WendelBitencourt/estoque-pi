@@ -228,6 +228,7 @@ export default function InicioScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={[]}>
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={[styles.scroll, { paddingBottom: footerHeight + 16, paddingTop: topInset + 16 }]}
         showsVerticalScrollIndicator={false}
       >

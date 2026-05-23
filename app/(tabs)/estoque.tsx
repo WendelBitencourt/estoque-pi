@@ -327,7 +327,7 @@ export default function EstoqueScreen() {
           )}
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.listaContent} showsVerticalScrollIndicator={false}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.listaContent} showsVerticalScrollIndicator={false}>
 
           {atencaoItens.length > 0 && (
             <>
