@@ -190,7 +190,7 @@ function Passo2({
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
-        contentContainerStyle={[styles.passoWrap, { flexGrow: 1 }]}
+        contentContainerStyle={[styles.passoWrap, { flexGrow: 1, paddingBottom: 8 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -350,25 +350,24 @@ function Passo2({
             )}
           </View>
         )}
-
-        <View style={{ flex: 1, minHeight: 16 }} />
-
-        <View style={styles.botoesRow}>
-          <TouchableOpacity style={[styles.voltarBtn, { borderColor: colors.border }]} onPress={onVoltar}>
-            <Text style={[styles.voltarTexto, { color: colors.textSecondary }]}>← Voltar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.avancarBtnFlex, { backgroundColor: podeAvancar ? colors.primary : colors.surfaceSecondary }]}
-            onPress={onAvancar}
-            disabled={!podeAvancar}
-            activeOpacity={0.85}
-          >
-            <Text style={[styles.avancarTexto, { color: podeAvancar ? '#FFF' : colors.textDisabled }]}>
-              Revisar →
-            </Text>
-          </TouchableOpacity>
-        </View>
       </ScrollView>
+
+      {/* Botões fixos na base — sempre visíveis independente do tamanho do conteúdo */}
+      <View style={[styles.botoesRow, styles.botoesFixos]}>
+        <TouchableOpacity style={[styles.voltarBtn, { borderColor: colors.border }]} onPress={onVoltar}>
+          <Text style={[styles.voltarTexto, { color: colors.textSecondary }]}>← Voltar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.avancarBtnFlex, { backgroundColor: podeAvancar ? colors.primary : colors.surfaceSecondary }]}
+          onPress={onAvancar}
+          disabled={!podeAvancar}
+          activeOpacity={0.85}
+        >
+          <Text style={[styles.avancarTexto, { color: podeAvancar ? '#FFF' : colors.textDisabled }]}>
+            Revisar →
+          </Text>
+        </TouchableOpacity>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -752,6 +751,7 @@ const styles = StyleSheet.create({
   erroTexto: { fontSize: 13, fontWeight: '600' },
 
   botoesRow: { flexDirection: 'row', gap: 12 },
+  botoesFixos: { paddingTop: 12, paddingBottom: 16 },
   voltarBtn: { flex: 1, paddingVertical: 18, borderRadius: 16, borderWidth: 1, alignItems: 'center' },
   voltarTexto: { fontSize: 16, fontWeight: '600' },
 
