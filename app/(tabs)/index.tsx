@@ -6,20 +6,131 @@ import {
   StyleSheet,
   Platform,
   Image,
+  StatusBar,
 } from 'react-native';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useTheme } from '../../theme';
 import { RiskBadge } from '../../components/RiskBadge';
 import { SkeletonLista } from '../../components/SkeletonCard';
-import { Produto, Lote } from '../../services/tipos';
+import { FadeDown, FadeIn } from '../../components/AnimEntrance';
+import { Produto, Lote, NivelRisco } from '../../services/tipos';
 import { subscribeToProdutos } from '../../services/produtosService';
 import { subscribeAllLotes } from '../../services/lotesService';
 import { getRiscoProduto, diasParaVencer } from '../../services/risco';
-import { getSaidasProduto } from '../../services/movimentacoesService';
-import { preverFimEstoque } from '../../services/mlService';
+
+const RISCO_ORDEM: Record<string, number> = { risco_alto: 0, atencao: 1, seguro: 2 };
+function riscoOrdem(r: NivelRisco | null) { return r === null ? 1 : RISCO_ORDEM[r] ?? 2; }
+
+interface ProdutoAtencaoCard {
+  produto: Produto;
+  riscoGeral: NivelRisco;
+  total: number;
+  lotesAtencao: Lote[];
+  countRiscoAlto: number;
+  countAtencao: number;
+}
+
+function formatarData(iso: string) {
+  const [, m, d] = iso.split('-');
+  return `${d}/${m}`;
+}
+
+function CardAtencao({ item, index = 0 }: { item: ProdutoAtencaoCard; index?: number }) {
+  const { colors } = useTheme();
+  const [expandido, setExpandido] = useState(true);
+
+  const borderLeft =
+    item.riscoGeral === 'risco_alto' ? colors.riscoAlto : colors.riscoAtencao;
+
+  return (
+    <FadeDown delay={Math.min(index, 6) * 80} duration={450}>
+      <View style={[styles.atCard, { backgroundColor: colors.surface, borderColor: colors.border, borderLeftColor: borderLeft }]}>
+
+          <TouchableOpacity
+            style={styles.atHeader}
+            onPress={() => setExpandido((v) => !v)}
+            activeOpacity={0.75}
+            accessibilityLabel={`${item.produto.nome}, ${item.total} unidades, ${expandido ? 'recolher' : 'ver'} lotes`}
+          >
+            <View style={[styles.atEmojiBg, { backgroundColor: colors.surfaceSecondary }]}>
+              {item.produto.fotoUrl
+                ? <Image source={{ uri: item.produto.fotoUrl }} style={styles.atFoto} />
+                : <Text style={styles.atEmoji}>{item.produto.emoji}</Text>}
+            </View>
+
+            <View style={styles.atInfo}>
+              <Text style={[styles.atNome, { color: colors.textPrimary }]} numberOfLines={1}>
+                {item.produto.nome}
+              </Text>
+              <View style={styles.atSubRow}>
+                <Text style={[styles.atTotal, { color: colors.textSecondary }]}>
+                  {item.total} un.
+                </Text>
+                <View style={styles.atMiniRiscos}>
+                  {item.countRiscoAlto > 0 && (
+                    <View style={[styles.atMiniPill, { backgroundColor: colors.riscoAltoLight }]}>
+                      <View style={[styles.atMiniDot, { backgroundColor: colors.riscoAlto }]} />
+                      <Text style={[styles.atMiniNum, { color: colors.riscoAltoDark }]}>{item.countRiscoAlto}</Text>
+                    </View>
+                  )}
+                  {item.countAtencao > 0 && (
+                    <View style={[styles.atMiniPill, { backgroundColor: colors.riscoAtencaoLight }]}>
+                      <View style={[styles.atMiniDot, { backgroundColor: colors.riscoAtencao }]} />
+                      <Text style={[styles.atMiniNum, { color: colors.riscoAtencaoDark }]}>{item.countAtencao}</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.atExpandirCol}>
+              <Text style={[styles.atExpandirNum, { color: colors.textDisabled }]}>
+                {item.lotesAtencao.length} {item.lotesAtencao.length === 1 ? 'lote' : 'lotes'}
+              </Text>
+              <Text style={[styles.atExpandirSeta, { color: colors.textDisabled }]}>
+                {expandido ? '▲' : '▼'}
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {expandido && (
+            <FadeDown duration={220} springify={false}>
+              <View style={[styles.atDivider, { backgroundColor: colors.divider }]} />
+              <View style={styles.atLotesWrap}>
+                {item.lotesAtencao.map((lote) => {
+                  const dias = diasParaVencer(lote.validade);
+                  const loteBorder =
+                    lote.risco === 'risco_alto' ? colors.riscoAlto : colors.riscoAtencao;
+                  return (
+                    <View key={lote.id} style={[styles.atLoteRow, { borderLeftColor: loteBorder, backgroundColor: colors.background }]}>
+                      <View style={styles.atLoteInfo}>
+                        <Text style={[styles.atLoteCodigo, { color: colors.textPrimary }]}>{lote.codigo}</Text>
+                        <Text style={[styles.atLoteDetalhe, { color: colors.textSecondary }]}>
+                          val. {formatarData(lote.validade)} · {lote.quantidade} un.
+                        </Text>
+                      </View>
+                      <RiskBadge risco={lote.risco} diasParaVencer={dias} />
+                    </View>
+                  );
+                })}
+                <TouchableOpacity
+                  style={[styles.atVerDetalhes, { borderColor: colors.border }]}
+                  onPress={() => router.push(`/produto/${item.produto.id}`)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.atVerDetalhesTexto, { color: colors.textSecondary }]}>
+                    Ver detalhes  →
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </FadeDown>
+          )}
+        </View>
+    </FadeDown>
+  );
+}
 
 function getSaudacao() {
   const h = new Date().getHours();
@@ -34,15 +145,15 @@ function getDataFormatada() {
   });
 }
 
-function CardClasse({ emoji, nome, valor, total, bg, textColor, descricao }: {
-  emoji: string; nome: string; valor: number; total: number;
+function CardClasse({ nome, valor, total, bg, textColor, descricao }: {
+  nome: string; valor: number; total: number;
   bg: string; textColor: string; descricao: string;
 }) {
   const pct = total > 0 ? Math.round((valor / total) * 100) : 0;
   return (
     <View style={[styles.cardClasse, { backgroundColor: bg }]}>
       <View style={styles.cardTop}>
-        <Text style={styles.cardEmoji}>{emoji}</Text>
+        <View style={[styles.cardDot, { backgroundColor: textColor }]} />
         <Text style={[styles.cardValor, { color: textColor }]}>{valor}</Text>
       </View>
       <Text style={[styles.cardNome, { color: textColor }]}>{nome}</Text>
@@ -54,10 +165,16 @@ function CardClasse({ emoji, nome, valor, total, bg, textColor, descricao }: {
 
 export default function InicioScreen() {
   const { colors } = useTheme();
+  const { top } = useSafeAreaInsets();
+  // StatusBar.currentHeight é mais confiável no Android para dispositivos sem notch
+  const topInset = Platform.OS === 'android'
+    ? Math.max(top, StatusBar.currentHeight ?? 24)
+    : top;
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [lotes, setLotes]       = useState<Lote[]>([]);
-  const [previsoes, setPrevisoes] = useState<Record<string, number>>({});
   const [carregando, setCarregando] = useState(true);
+  const [footerExpandido, setFooterExpandido] = useState(true);
+  const [footerHeight, setFooterHeight] = useState(220);
   const recebido = useRef({ produtos: false, lotes: false });
 
   function marcarRecebido(chave: 'produtos' | 'lotes') {
@@ -71,12 +188,6 @@ export default function InicioScreen() {
     const u2 = subscribeAllLotes((d)   => { setLotes(d);    marcarRecebido('lotes'); });
     return () => { u1(); u2(); clearTimeout(timer); };
   }, []);
-
-  const produtoMap = useMemo(() => {
-    const m: Record<string, Produto> = {};
-    produtos.forEach((p) => { m[p.id] = p; });
-    return m;
-  }, [produtos]);
 
   const totalLotes = lotes.length;
 
@@ -92,50 +203,34 @@ export default function InicioScreen() {
     ? Math.min(...lotesAlto.map((l) => diasParaVencer(l.validade)))
     : null;
 
-  // Produtos em risco para a lista "Requer atenção"
-  const produtosAtencao = useMemo(() =>
+  const produtosAtencao = useMemo<ProdutoAtencaoCard[]>(() =>
     produtos
       .map((p) => {
         const ls = lotes.filter((l) => l.produtoId === p.id);
-        const risco = ls.length > 0 ? getRiscoProduto(ls) : 'seguro' as const;
-        return { produto: p, risco, ls };
-      })
-      .filter(({ risco }) => risco === 'risco_alto' || risco === 'atencao')
-      .map(({ produto, risco, ls }) => {
-        const pior = [...ls].sort((a, b) =>
-          new Date(a.validade).getTime() - new Date(b.validade).getTime()
-        )[0];
+        if (ls.length === 0) return null;
+        const riscoGeral = getRiscoProduto(ls);
+        if (riscoGeral === 'seguro') return null;
+        const lotesAtencao = ls
+          .filter((l) => l.risco === 'risco_alto' || l.risco === 'atencao')
+          .sort((a, b) => riscoOrdem(a.risco) - riscoOrdem(b.risco) || new Date(a.validade).getTime() - new Date(b.validade).getTime());
         return {
-          produto,
-          risco,
-          diasPiorLote: pior ? diasParaVencer(pior.validade) : 0,
+          produto: p,
+          riscoGeral: riscoGeral as NivelRisco,
           total: ls.reduce((s, l) => s + l.quantidade, 0),
-        };
-      }),
+          lotesAtencao,
+          countRiscoAlto: ls.filter((l) => l.risco === 'risco_alto').length,
+          countAtencao:   ls.filter((l) => l.risco === 'atencao').length,
+        } as ProdutoAtencaoCard;
+      })
+      .filter((x): x is ProdutoAtencaoCard => x !== null),
   [produtos, lotes]);
 
-  const atencaoKey = useMemo(
-    () => produtosAtencao.map((x) => `${x.produto.id}:${x.total}`).join(','),
-    [produtosAtencao]
-  );
-
-  useEffect(() => {
-    if (produtosAtencao.length === 0) return;
-    produtosAtencao.forEach(({ produto, total }) => {
-      getSaidasProduto(produto.id)
-        .then((saidas) => preverFimEstoque(saidas, total))
-        .then((p) => {
-          if (p.suficiente && p.diasRestantes !== null) {
-            setPrevisoes((prev) => ({ ...prev, [produto.id]: p.diasRestantes! }));
-          }
-        })
-        .catch(() => {});
-    });
-  }, [atencaoKey]);
-
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={[]}>
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingBottom: footerHeight + 16, paddingTop: topInset + 16 }]}
+        showsVerticalScrollIndicator={false}
+      >
 
         {/* ── Cabeçalho ── */}
         <View style={styles.header}>
@@ -151,38 +246,38 @@ export default function InicioScreen() {
         {/* ── Alerta de Desperdício ── */}
         {totalLotes > 0 && (
           unidadesEmRisco > 0 ? (
-            <Animated.View entering={FadeIn.duration(500)}>
+            <FadeIn duration={500}>
               <TouchableOpacity
-                style={[styles.alertaBanner, { backgroundColor: colors.riscoAltoLight, borderColor: colors.riscoAlto }]}
-                onPress={() => router.push('/estoque')}
-                activeOpacity={0.8}
-                accessibilityLabel={`Alerta de desperdício: ${unidadesEmRisco} ${unidadesEmRisco === 1 ? 'unidade' : 'unidades'} em risco de vencer. Toque para ver o estoque.`}
-              >
-                <Text style={styles.alertaIcone}>⚠️</Text>
-                <View style={styles.alertaTextos}>
-                  <Text style={[styles.alertaTitulo, { color: colors.riscoAltoDark }]}>
-                    Alerta de Desperdício
-                  </Text>
-                  <Text style={[styles.alertaDescricao, { color: colors.riscoAltoDark }]}>
-                    {unidadesEmRisco} {unidadesEmRisco === 1 ? 'unidade' : 'unidades'} em risco de vencer
-                    {diasMaisUrgente !== null ? ` — mais urgente em ${diasMaisUrgente}d` : ''}
-                  </Text>
-                </View>
-                <Text style={[styles.alertaSeta, { color: colors.riscoAltoDark }]}>›</Text>
-              </TouchableOpacity>
-            </Animated.View>
+                  style={[styles.alertaBanner, { backgroundColor: colors.riscoAltoLight, borderColor: colors.riscoAlto }]}
+                  onPress={() => router.push('/estoque')}
+                  activeOpacity={0.8}
+                  accessibilityLabel={`Alerta de desperdício: ${unidadesEmRisco} ${unidadesEmRisco === 1 ? 'unidade' : 'unidades'} em risco de vencer. Toque para ver o estoque.`}
+                >
+                  <Text style={styles.alertaIcone}>⚠️</Text>
+                  <View style={styles.alertaTextos}>
+                    <Text style={[styles.alertaTitulo, { color: colors.riscoAltoDark }]}>
+                      Alerta de Desperdício
+                    </Text>
+                    <Text style={[styles.alertaDescricao, { color: colors.riscoAltoDark }]}>
+                      {unidadesEmRisco} {unidadesEmRisco === 1 ? 'unidade' : 'unidades'} em risco de vencer
+                      {diasMaisUrgente !== null ? ` — mais urgente em ${diasMaisUrgente}d` : ''}
+                    </Text>
+                  </View>
+                  <Text style={[styles.alertaSeta, { color: colors.riscoAltoDark }]}>›</Text>
+                </TouchableOpacity>
+            </FadeIn>
           ) : (
-            <Animated.View entering={FadeIn.duration(500)}>
+            <FadeIn duration={500}>
               <View style={[styles.alertaBanner, { backgroundColor: colors.riscoSeguroLight, borderColor: colors.riscoSeguro }]}>
-                <Text style={styles.alertaIcone}>✅</Text>
-                <View style={styles.alertaTextos}>
-                  <Text style={[styles.alertaTitulo, { color: colors.riscoSeguroDark }]}>Sem risco de desperdício</Text>
-                  <Text style={[styles.alertaDescricao, { color: colors.riscoSeguroDark }]}>
-                    Nenhum item em risco de vencer antes de ser consumido.
-                  </Text>
+                  <Text style={styles.alertaIcone}>✅</Text>
+                  <View style={styles.alertaTextos}>
+                    <Text style={[styles.alertaTitulo, { color: colors.riscoSeguroDark }]}>Sem risco de desperdício</Text>
+                    <Text style={[styles.alertaDescricao, { color: colors.riscoSeguroDark }]}>
+                      Nenhum item em risco de vencer antes de ser consumido.
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            </Animated.View>
+            </FadeIn>
           )
         )}
 
@@ -200,9 +295,9 @@ export default function InicioScreen() {
             </View>
 
             <View style={styles.cardsRow}>
-              <CardClasse emoji="🔴" nome="Consumo Imediato"   valor={dist.alto}    total={totalLotes} bg={colors.riscoAltoLight}    textColor={colors.riscoAltoDark}    descricao="Vence antes de ser consumido" />
-              <CardClasse emoji="🟡" nome="Risco de Vencimento" valor={dist.atencao} total={totalLotes} bg={colors.riscoAtencaoLight} textColor={colors.riscoAtencaoDark} descricao="Monitorar de perto" />
-              <CardClasse emoji="🟢" nome="Seguro"              valor={dist.seguro}  total={totalLotes} bg={colors.riscoSeguroLight}  textColor={colors.riscoSeguroDark}  descricao="Validade confortável" />
+              <CardClasse nome="Consumo Imediato"   valor={dist.alto}    total={totalLotes} bg={colors.riscoAltoLight}    textColor={colors.riscoAltoDark}    descricao="Vence antes de ser consumido" />
+              <CardClasse nome="Risco de Vencimento" valor={dist.atencao} total={totalLotes} bg={colors.riscoAtencaoLight} textColor={colors.riscoAtencaoDark} descricao="Monitorar de perto" />
+              <CardClasse nome="Seguro"              valor={dist.seguro}  total={totalLotes} bg={colors.riscoSeguroLight}  textColor={colors.riscoSeguroDark}  descricao="Validade confortável" />
             </View>
           </>
         )}
@@ -224,7 +319,7 @@ export default function InicioScreen() {
         {carregando ? (
           <SkeletonLista n={3} />
         ) : produtosAtencao.length === 0 ? (
-          <Animated.View entering={FadeIn.duration(400)} style={[styles.vazio, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <FadeIn duration={400} style={[styles.vazio, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text style={styles.vazioEmoji}>{totalLotes === 0 ? '📦' : '✅'}</Text>
             <Text style={[styles.vazioTexto, { color: colors.textSecondary }]}>
               {totalLotes === 0
@@ -241,67 +336,68 @@ export default function InicioScreen() {
                 <Text style={styles.vazioBtnTexto}>Registrar entrada</Text>
               </TouchableOpacity>
             )}
-          </Animated.View>
+          </FadeIn>
         ) : (
           <View style={styles.lista}>
-            {produtosAtencao.map(({ produto, risco, diasPiorLote, total }, i) => (
-              <Animated.View
-                key={produto.id}
-                entering={FadeInDown.delay(i * 80).duration(450).springify().damping(16)}
-              >
-                <TouchableOpacity
-                  style={[styles.itemCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                  onPress={() => router.push(`/produto/${produto.id}`)}
-                  activeOpacity={0.75}
-                  accessibilityLabel={`${produto.nome}, ${total} em estoque${diasPiorLote !== null ? `, vence em ${diasPiorLote} dias` : ''}`}
-                >
-                  <View style={[styles.itemEmojiBg, { backgroundColor: colors.surfaceSecondary }]}>
-                    {produto.fotoUrl
-                      ? <Image source={{ uri: produto.fotoUrl }} style={styles.itemFoto} />
-                      : <Text style={styles.itemEmoji}>{produto.emoji}</Text>
-                    }
-                  </View>
-                  <View style={styles.itemInfo}>
-                    <Text style={[styles.itemNome, { color: colors.textPrimary }]}>{produto.nome}</Text>
-                    <Text style={[styles.itemSub,  { color: colors.textSecondary }]}>
-                      {total} em estoque{previsoes[produto.id] !== undefined ? ` · ⏱ ~${previsoes[produto.id]}d` : ''}
-                    </Text>
-                  </View>
-                  <RiskBadge risco={risco} diasParaVencer={diasPiorLote} />
-                </TouchableOpacity>
-              </Animated.View>
+            {produtosAtencao.map((item, i) => (
+              <CardAtencao key={item.produto.id} item={item} index={i} />
             ))}
           </View>
         )}
 
-        {/* ── Ações ── */}
-        <TouchableOpacity
-          style={[styles.botaoPrincipal, { backgroundColor: colors.primary }]}
-          onPress={() => router.push('/entrada')}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.botaoEmoji}>📥</Text>
-          <Text style={styles.botaoTexto}>Registrar entrada de doação</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.botaoSecundario, { backgroundColor: colors.accentLight, borderColor: colors.accent }]}
-          onPress={() => router.push('/necessidades')}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.botaoEmoji}>📝</Text>
-          <Text style={[styles.botaoTexto, { color: colors.accent }]}>Ver lista de necessidades</Text>
-        </TouchableOpacity>
-
-        <View style={{ height: 32 }} />
       </ScrollView>
+
+      {/* ── Footer fixo ── */}
+      <View
+        style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.divider, paddingBottom: 8 }]}
+        onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
+      >
+        <TouchableOpacity
+          style={styles.footerToggle}
+          onPress={() => setFooterExpandido((v) => !v)}
+          activeOpacity={0.6}
+          accessibilityLabel={footerExpandido ? 'Recolher ações' : 'Expandir ações'}
+        >
+          <Text style={[styles.footerLabel, { color: colors.textSecondary }]}>
+            📥 Registrar doação  /  📝 Lista de Necessidades{'  '}{footerExpandido ? '▾' : '▴'}
+          </Text>
+        </TouchableOpacity>
+
+        {footerExpandido && (
+          <FadeDown duration={200} springify={false} style={styles.footerBotoes}>
+            <TouchableOpacity
+              style={[styles.botaoPrincipal, { backgroundColor: colors.primary }]}
+              onPress={() => router.push('/entrada')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.botaoEmoji}>📥</Text>
+              <Text style={styles.botaoTexto}>Registrar entrada de doação</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.botaoSecundario, { backgroundColor: colors.accentLight, borderColor: colors.accent }]}
+              onPress={() => router.push('/necessidades')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.botaoEmoji}>📝</Text>
+              <Text style={[styles.botaoTexto, { color: colors.accent }]}>Ver lista de necessidades</Text>
+            </TouchableOpacity>
+          </FadeDown>
+        )}
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe:   { flex: 1 },
-  scroll: { paddingHorizontal: 20, paddingTop: 24 },
+  scroll: { paddingHorizontal: 20 },
+
+  footer:           { paddingHorizontal: 20, borderTopWidth: 1 },
+  footerToggle:     { alignItems: 'center', paddingVertical: 10, gap: 4 },
+  footerHandlePill: { width: 36, height: 4, borderRadius: 2 },
+  footerLabel: { fontSize: 14, fontWeight: '600' },
+  footerBotoes:     { gap: 10 },
 
   header:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
   saudacao: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5, marginBottom: 4 },
@@ -327,28 +423,46 @@ const styles = StyleSheet.create({
   cardsRow:      { flexDirection: 'row', gap: 8, marginBottom: 8 },
   cardClasse:    { flex: 1, borderRadius: 16, padding: 12, gap: 2 },
   cardTop:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardEmoji:     { fontSize: 18 },
+  cardDot:       { width: 16, height: 16, borderRadius: 8 },
   cardValor:     { fontSize: 26, fontWeight: '800' },
   cardNome:      { fontSize: 11, fontWeight: '800', marginTop: 4 },
   cardPct:       { fontSize: 11, opacity: 0.75 },
   cardDesc:      { fontSize: 10, opacity: 0.65, marginTop: 4, lineHeight: 14 },
 
   // Lista atenção
-  lista:    { gap: 10 },
-  itemCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    padding: 16, borderRadius: 16, borderWidth: 1,
+  lista: { gap: 10 },
+
+  atCard: {
+    borderRadius: 16, borderWidth: 1, borderLeftWidth: 4,
+    overflow: 'hidden',
     ...Platform.select({
-      ios:     { shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
-      android: { elevation: 1 },
+      ios:     { shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+      android: { elevation: 2 },
     }),
   },
-  itemEmojiBg: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  itemEmoji:   { fontSize: 26 },
-  itemFoto:    { width: 48, height: 48, borderRadius: 14 },
-  itemInfo:    { flex: 1 },
-  itemNome:    { fontSize: 17, fontWeight: '700', marginBottom: 3 },
-  itemSub:     { fontSize: 14 },
+  atHeader:     { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
+  atEmojiBg:    { width: 46, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  atEmoji:      { fontSize: 24 },
+  atFoto:       { width: 46, height: 46, borderRadius: 12 },
+  atInfo:       { flex: 1, gap: 4 },
+  atNome:       { fontSize: 16, fontWeight: '700' },
+  atSubRow:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  atTotal:      { fontSize: 13 },
+  atMiniRiscos: { flexDirection: 'row', gap: 4 },
+  atMiniPill:   { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },
+  atMiniDot:    { width: 6, height: 6, borderRadius: 3 },
+  atMiniNum:    { fontSize: 12, fontWeight: '700' },
+  atExpandirCol:  { alignItems: 'center', gap: 2, paddingLeft: 4 },
+  atExpandirNum:  { fontSize: 11, fontWeight: '600' },
+  atExpandirSeta: { fontSize: 10 },
+  atDivider:    { height: 1 },
+  atLotesWrap:  { padding: 12, gap: 8 },
+  atLoteRow:    { flexDirection: 'row', alignItems: 'center', gap: 10, borderLeftWidth: 3, borderRadius: 8, paddingLeft: 10, paddingRight: 8, paddingVertical: 8 },
+  atLoteInfo:   { flex: 1, gap: 2 },
+  atLoteCodigo: { fontSize: 14, fontWeight: '700' },
+  atLoteDetalhe:{ fontSize: 12 },
+  atVerDetalhes:     { borderRadius: 10, borderWidth: 1, paddingVertical: 10, alignItems: 'center', marginTop: 4 },
+  atVerDetalhesTexto:{ fontSize: 13, fontWeight: '600' },
 
   vazio:      { borderRadius: 16, borderWidth: 1, padding: 28, alignItems: 'center', gap: 10 },
   vazioEmoji: { fontSize: 36 },
@@ -356,8 +470,8 @@ const styles = StyleSheet.create({
   vazioBtn:   { marginTop: 4, paddingVertical: 13, paddingHorizontal: 26, borderRadius: 14 },
   vazioBtnTexto: { color: '#FFF', fontSize: 15, fontWeight: '700' },
 
-  botaoPrincipal:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 32, paddingVertical: 20, borderRadius: 20 },
-  botaoSecundario: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 12, paddingVertical: 18, borderRadius: 20, borderWidth: 1.5 },
+  botaoPrincipal:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 18, borderRadius: 18 },
+  botaoSecundario: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 16, borderRadius: 18, borderWidth: 1.5 },
   botaoEmoji:  { fontSize: 22 },
   botaoTexto:  { fontSize: 18, fontWeight: '700', color: '#FFFFFF', letterSpacing: 0.2 },
 

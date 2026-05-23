@@ -12,11 +12,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { useTheme } from '../../theme';
 import { SkeletonLista } from '../../components/SkeletonCard';
 import { RiskBadge } from '../../components/RiskBadge';
 import { Produto, Lote, NivelRisco } from '../../services/tipos';
+import { ResultadoAgrupamento } from '../../services/mlService';
 import { subscribeToProdutos, toggleOcultarNecessidades } from '../../services/produtosService';
 import { subscribeAllLotes } from '../../services/lotesService';
 import { getRiscoProduto, diasParaVencer } from '../../services/risco';
@@ -31,6 +33,49 @@ interface ItemNecessidade {
   risco: NivelRisco;
   diasPiorLote: number | null;
   motivo: string;
+}
+
+const LABEL_CAT: Record<string, string> = {
+  alimentos: 'alimentos',
+  higiene: 'higiene pessoal',
+  limpeza: 'produtos de limpeza',
+};
+
+function buildSugestaoTexto(resultado: ResultadoAgrupamento, agora: Date): string | null {
+  if (!resultado.suficiente) return null;
+
+  const clusterIdx = resultado.clusterMesAtual;
+  const cluster =
+    clusterIdx !== null
+      ? resultado.clusters.find((c) => c.id === clusterIdx)
+      : [...resultado.clusters].sort((a, b) => b.nMeses - a.nMeses)[0];
+
+  if (!cluster) return null;
+
+  const nomeMes = agora.toLocaleDateString('pt-BR', { month: 'long' });
+  const mes = nomeMes.charAt(0).toUpperCase() + nomeMes.slice(1);
+
+  const cats = Object.entries(cluster.perfil)
+    .filter(([, v]) => v > 0)
+    .sort((a, b) => b[1] - a[1]);
+
+  if (cats.length === 0) return null;
+
+  const totalDoacoes = cats.reduce((s, [, v]) => s + v, 0);
+  const [nomeMaisDoado] = cats[0];
+  const [nomeMenosDoado] = cats[cats.length - 1];
+  const labelMais = LABEL_CAT[nomeMaisDoado] ?? nomeMaisDoado;
+  const labelMenos = LABEL_CAT[nomeMenosDoado] ?? nomeMenosDoado;
+
+  if (totalDoacoes < 100) {
+    return `${mes} costuma ser mês de baixa doação em geral — bom momento para reforçar os pedidos de ${labelMais}`;
+  }
+
+  if (nomeMaisDoado === nomeMenosDoado || cats.length < 2) {
+    return `${mes}: ${cluster.descricao.toLowerCase()}`;
+  }
+
+  return `${mes} tende a ter mais doações de ${labelMais}. Reforce os pedidos de ${labelMenos} para equilibrar o estoque`;
 }
 
 function buildLista(
@@ -194,22 +239,23 @@ export default function NecessidadesScreen() {
     return () => { u1(); u2(); clearTimeout(timer); };
   }, []);
 
-  // Busca sugestão estratégica do K-Means em background
-  useEffect(() => {
-    setCarregandoSugestao(true);
-    const agora = new Date();
-    getEntradasMensais()
-      .then((historico) =>
-        agruparDoacoes(historico, agora.getMonth() + 1, agora.getFullYear())
-      )
-      .then((resultado) => {
-        if (resultado.suficiente && resultado.descricaoMesAtual) {
-          setSugestao(resultado.descricaoMesAtual);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setCarregandoSugestao(false));
-  }, []);
+  // Busca sugestão estratégica do K-Means sempre que a tela entra em foco
+  useFocusEffect(
+    useCallback(() => {
+      setCarregandoSugestao(true);
+      setSugestao(null);
+      const agora = new Date();
+      getEntradasMensais()
+        .then((historico) =>
+          agruparDoacoes(historico, agora.getMonth() + 1, agora.getFullYear())
+        )
+        .then((resultado) => {
+          setSugestao(buildSugestaoTexto(resultado, agora));
+        })
+        .catch(() => {})
+        .finally(() => setCarregandoSugestao(false));
+    }, [])
+  );
 
   const { urgentes, atencao } = useMemo(() => buildLista(produtos, lotes), [produtos, lotes]);
   const total = urgentes.length + atencao.length;
@@ -224,12 +270,6 @@ export default function NecessidadesScreen() {
       // WhatsApp não instalado — abre compartilhamento nativo
       Share.share({ message: texto }).catch(() => {});
     }
-  }
-
-  function handleCopiar() {
-    const texto = gerarTexto(urgentes, atencao, sugestao);
-    Share.share({ message: texto, title: 'Lista de Necessidades — Casa da Criança' })
-      .catch(() => Alert.alert('Não foi possível compartilhar', 'Verifique se o WhatsApp está instalado ou copie o texto manualmente.'));
   }
 
   return (
@@ -279,16 +319,6 @@ export default function NecessidadesScreen() {
             <Text style={styles.whatsappSub}>Envie a lista para grupos de doadores</Text>
           </View>
           <Text style={styles.whatsappSeta}>›</Text>
-        </TouchableOpacity>
-
-        {/* Botão Copiar (fallback) */}
-        <TouchableOpacity
-          style={[styles.copiarBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          onPress={handleCopiar}
-          activeOpacity={0.8}
-          accessibilityLabel="Copiar texto da lista"
-        >
-          <Text style={[styles.copiarTexto, { color: colors.textSecondary }]}>📋  Copiar texto</Text>
         </TouchableOpacity>
 
         {/* Lista vazia / carregando */}
@@ -384,12 +414,6 @@ const styles = StyleSheet.create({
   whatsappTitulo:{ fontSize: 16, fontWeight: '800', color: '#FFFFFF' },
   whatsappSub:   { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
   whatsappSeta:  { fontSize: 26, color: 'rgba(255,255,255,0.7)', fontWeight: '300' },
-
-  // Botão Copiar
-  copiarBtn: {
-    alignItems: 'center', padding: 14, borderRadius: 14, borderWidth: 1, marginBottom: 28,
-  },
-  copiarTexto: { fontSize: 15, fontWeight: '600' },
 
   // Seções
   secao:         { marginBottom: 28 },

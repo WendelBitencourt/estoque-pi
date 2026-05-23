@@ -1,6 +1,6 @@
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
 export interface ConfigNotificacoes {
   resumoDiario: boolean;
@@ -17,7 +17,19 @@ const DEFAULTS: ConfigNotificacoes = {
 const STORAGE_KEY = '@notif_config_v1';
 const ID_RESUMO = 'resumo-diario';
 
+// Notificações não funcionam no Expo Go — retorna stubs silenciosos
+const isExpoGo =
+  Constants.executionEnvironment === 'storeClient' ||
+  (Constants as any).appOwnership === 'expo';
+
+async function getNotifications() {
+  if (isExpoGo) return null;
+  return import('expo-notifications');
+}
+
 export async function pedirPermissao(): Promise<boolean> {
+  const Notifications = await getNotifications();
+  if (!Notifications) return false;
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('estoque', {
       name: 'Estoque Casa da Criança',
@@ -44,6 +56,8 @@ export async function salvarConfig(config: ConfigNotificacoes): Promise<void> {
 }
 
 export async function agendarResumoDiario(hora: number): Promise<void> {
+  const Notifications = await getNotifications();
+  if (!Notifications) return;
   await Notifications.cancelScheduledNotificationAsync(ID_RESUMO).catch(() => {});
   await Notifications.scheduleNotificationAsync({
     identifier: ID_RESUMO,
@@ -61,10 +75,14 @@ export async function agendarResumoDiario(hora: number): Promise<void> {
 }
 
 export async function cancelarResumoDiario(): Promise<void> {
+  const Notifications = await getNotifications();
+  if (!Notifications) return;
   await Notifications.cancelScheduledNotificationAsync(ID_RESUMO).catch(() => {});
 }
 
 export async function notificarEstoqueZerado(nomeProduto: string): Promise<void> {
+  const Notifications = await getNotifications();
+  if (!Notifications) return;
   const config = await carregarConfig();
   if (!config.alertaEstoqueZerado) return;
   await Notifications.scheduleNotificationAsync({

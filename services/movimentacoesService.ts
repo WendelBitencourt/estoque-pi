@@ -109,13 +109,13 @@ export async function getEntradasMensais(): Promise<
     const categoria = categoriaPorId[data.produtoId as string];
     if (!categoria) return;
     const dt = (data.data as Timestamp).toDate();
-    const key = `${dt.getFullYear()}-${dt.getMonth() + 1}-${categoria}`;
+    const key = `${dt.getFullYear()}|${dt.getMonth() + 1}|${categoria}`;
     mapa[key] = (mapa[key] ?? 0) + (data.quantidade as number);
   });
 
   return Object.entries(mapa).map(([key, totalUnid]) => {
-    const [ano, mes, categoria] = key.split('-');
-    return { ano: Number(ano), mes: Number(mes), categoria, totalUnid };
+    const [anoStr, mesStr, categoria] = key.split('|');
+    return { ano: Number(anoStr), mes: Number(mesStr), categoria, totalUnid };
   });
 }
 

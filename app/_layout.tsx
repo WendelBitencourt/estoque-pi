@@ -4,7 +4,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View, ActivityIndicator } from 'react-native';
 import { useEffect } from 'react';
 import NetInfo from '@react-native-community/netinfo';
-import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import { ThemeProvider, useTheme } from '../theme';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { OfflineBar } from '../components/OfflineBar';
@@ -13,15 +13,22 @@ import { getProdutoById } from '../services/produtosService';
 import { classificarRiscoML } from '../services/mlService';
 import { diasParaVencer } from '../services/risco';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+const isExpoGo =
+  Constants.executionEnvironment === 'storeClient' ||
+  (Constants as any).appOwnership === 'expo';
+
+if (!isExpoGo) {
+  const Notifications = require('expo-notifications');
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
 
 /**
  * Roda em background e reclassifica lotes que foram salvos sem `risco`

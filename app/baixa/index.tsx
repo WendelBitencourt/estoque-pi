@@ -11,18 +11,13 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  FadeInDown,
-} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../../theme';
 import { StepIndicator } from '../../components/StepIndicator';
 import { RiskBadge } from '../../components/RiskBadge';
+import { FadeDown, ScaleIn } from '../../components/AnimEntrance';
 import { Produto, Lote } from '../../services/tipos';
 import { subscribeToProdutos, getProdutoById } from '../../services/produtosService';
 import { atualizarMediaConsumo } from '../../services/produtosService';
@@ -500,28 +495,13 @@ function Sucesso({
 }) {
   const { colors } = useTheme();
   const isDescarte = tipo === 'descarte';
-  const scale = useSharedValue(0);
-  const mounted = useRef(false);
-
-  useEffect(() => {
-    if (!mounted.current) {
-      mounted.current = true;
-      scale.value = withSpring(1, { damping: 10, stiffness: 80 });
-    }
-  }, []);
-
-  const circleStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
 
   return (
     <View style={[styles.sucessoWrap, { backgroundColor: colors.background }]}>
-      <Animated.View
-        style={[styles.sucessoCirculo, { backgroundColor: isDescarte ? colors.riscoAltoLight : colors.riscoSeguroLight }, circleStyle]}
-      >
+      <ScaleIn style={[styles.sucessoCirculo, { backgroundColor: isDescarte ? colors.riscoAltoLight : colors.riscoSeguroLight }]}>
         <Text style={styles.sucessoIcon}>{isDescarte ? '🗑️' : '✓'}</Text>
-      </Animated.View>
-      <Animated.View entering={FadeInDown.delay(200).duration(400)} style={{ alignItems: 'center', gap: 12, width: '100%' }}>
+      </ScaleIn>
+      <FadeDown delay={200} duration={400} springify={false} style={{ alignItems: 'center', gap: 12, width: '100%' }}>
         <Text style={[styles.sucessoTitulo, { color: colors.textPrimary }]}>
           {isDescarte ? 'Descarte registrado!' : 'Saída registrada!'}
         </Text>
@@ -543,7 +523,7 @@ function Sucesso({
         >
           <Text style={[styles.voltarInicioTexto, { color: colors.textSecondary }]}>Voltar para o início</Text>
         </TouchableOpacity>
-      </Animated.View>
+      </FadeDown>
     </View>
   );
 }

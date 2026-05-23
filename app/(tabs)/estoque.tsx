@@ -8,7 +8,6 @@ import {
   Platform,
   Image,
 } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -20,6 +19,7 @@ import { subscribeToProdutos } from '../../services/produtosService';
 import { subscribeAllLotes } from '../../services/lotesService';
 import { getRiscoProduto, diasParaVencer } from '../../services/risco';
 import { CategoriaItem, CATEGORIAS_PADRAO, subscribeCategorias } from '../../services/categoriasService';
+import { FadeDown } from '../../components/AnimEntrance';
 
 type FiltroRisco = 'todos' | 'risco_alto' | 'atencao' | 'seguro';
 
@@ -57,106 +57,106 @@ function ProdutoCard({ item, index = 0 }: { item: ProdutoEstoque; index?: number
     : colors.riscoSeguro;
 
   return (
-    <Animated.View entering={FadeInDown.delay(Math.min(index, 6) * 55).duration(400).springify().damping(18)}>
+    <FadeDown delay={Math.min(index, 6) * 55} duration={400}>
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, borderLeftColor: cardBorderLeft }]}>
 
-        {/* ── Cabeçalho (toque = expandir/recolher) ── */}
-        <TouchableOpacity
-          style={styles.cardHeader}
-          onPress={() => setExpandido((v) => !v)}
-          activeOpacity={0.75}
-          accessibilityLabel={`${item.produto.nome}, ${item.total} unidades, ${expandido ? 'recolher' : 'ver'} ${item.lotes.length} lotes`}
-        >
-          <View style={[styles.emojiBg, { backgroundColor: colors.surfaceSecondary }]}>
-            {item.produto.fotoUrl
-              ? <Image source={{ uri: item.produto.fotoUrl }} style={styles.foto} />
-              : <Text style={styles.emoji}>{item.produto.emoji}</Text>}
-          </View>
+          {/* ── Cabeçalho (toque = expandir/recolher) ── */}
+          <TouchableOpacity
+            style={styles.cardHeader}
+            onPress={() => setExpandido((v) => !v)}
+            activeOpacity={0.75}
+            accessibilityLabel={`${item.produto.nome}, ${item.total} unidades, ${expandido ? 'recolher' : 'ver'} ${item.lotes.length} lotes`}
+          >
+            <View style={[styles.emojiBg, { backgroundColor: colors.surfaceSecondary }]}>
+              {item.produto.fotoUrl
+                ? <Image source={{ uri: item.produto.fotoUrl }} style={styles.foto} />
+                : <Text style={styles.emoji}>{item.produto.emoji}</Text>}
+            </View>
 
-          <View style={styles.headerInfo}>
-            <Text style={[styles.nome, { color: colors.textPrimary }]} numberOfLines={1}>
-              {item.produto.nome}
-            </Text>
-
-            <View style={styles.headerSubRow}>
-              <Text style={[styles.totalTexto, { color: colors.textSecondary }]}>
-                {item.total} un.
+            <View style={styles.headerInfo}>
+              <Text style={[styles.nome, { color: colors.textPrimary }]} numberOfLines={1}>
+                {item.produto.nome}
               </Text>
 
-              <View style={styles.miniRiscos}>
-                {item.countRiscoAlto > 0 && (
-                  <View style={[styles.miniPill, { backgroundColor: colors.riscoAltoLight }]}>
-                    <View style={[styles.miniDot, { backgroundColor: colors.riscoAlto }]} />
-                    <Text style={[styles.miniNum, { color: colors.riscoAltoDark }]}>{item.countRiscoAlto}</Text>
-                  </View>
-                )}
-                {item.countAtencao > 0 && (
-                  <View style={[styles.miniPill, { backgroundColor: colors.riscoAtencaoLight }]}>
-                    <View style={[styles.miniDot, { backgroundColor: colors.riscoAtencao }]} />
-                    <Text style={[styles.miniNum, { color: colors.riscoAtencaoDark }]}>{item.countAtencao}</Text>
-                  </View>
-                )}
-                {item.countSeguro > 0 && (
-                  <View style={[styles.miniPill, { backgroundColor: colors.riscoSeguroLight }]}>
-                    <View style={[styles.miniDot, { backgroundColor: colors.riscoSeguro }]} />
-                    <Text style={[styles.miniNum, { color: colors.riscoSeguroDark }]}>{item.countSeguro}</Text>
-                  </View>
-                )}
+              <View style={styles.headerSubRow}>
+                <Text style={[styles.totalTexto, { color: colors.textSecondary }]}>
+                  {item.total} un.
+                </Text>
+
+                <View style={styles.miniRiscos}>
+                  {item.countRiscoAlto > 0 && (
+                    <View style={[styles.miniPill, { backgroundColor: colors.riscoAltoLight }]}>
+                      <View style={[styles.miniDot, { backgroundColor: colors.riscoAlto }]} />
+                      <Text style={[styles.miniNum, { color: colors.riscoAltoDark }]}>{item.countRiscoAlto}</Text>
+                    </View>
+                  )}
+                  {item.countAtencao > 0 && (
+                    <View style={[styles.miniPill, { backgroundColor: colors.riscoAtencaoLight }]}>
+                      <View style={[styles.miniDot, { backgroundColor: colors.riscoAtencao }]} />
+                      <Text style={[styles.miniNum, { color: colors.riscoAtencaoDark }]}>{item.countAtencao}</Text>
+                    </View>
+                  )}
+                  {item.countSeguro > 0 && (
+                    <View style={[styles.miniPill, { backgroundColor: colors.riscoSeguroLight }]}>
+                      <View style={[styles.miniDot, { backgroundColor: colors.riscoSeguro }]} />
+                      <Text style={[styles.miniNum, { color: colors.riscoSeguroDark }]}>{item.countSeguro}</Text>
+                    </View>
+                  )}
+                </View>
               </View>
             </View>
-          </View>
 
-          <View style={styles.expandirCol}>
-            <Text style={[styles.expandirNum, { color: colors.textDisabled }]}>
-              {item.lotes.length} {item.lotes.length === 1 ? 'lote' : 'lotes'}
-            </Text>
-            <Text style={[styles.expandirSeta, { color: colors.textDisabled }]}>
-              {expandido ? '▲' : '▼'}
-            </Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* ── Lotes (colapsável) ── */}
-        {expandido && (
-          <Animated.View entering={FadeInDown.duration(220)}>
-            <View style={[styles.divider, { backgroundColor: colors.divider }]} />
-
-            <View style={styles.lotesWrap}>
-              {item.lotes.map((lote) => {
-                const dias = diasParaVencer(lote.validade);
-                const loteBorder =
-                  lote.risco === 'risco_alto' ? colors.riscoAlto
-                  : lote.risco === 'atencao'  ? colors.riscoAtencao
-                  : lote.risco === 'seguro'   ? colors.riscoSeguro
-                  : colors.border;
-                return (
-                  <View key={lote.id} style={[styles.loteRow, { borderLeftColor: loteBorder, backgroundColor: colors.background }]}>
-                    <View style={styles.loteInfo}>
-                      <Text style={[styles.loteCodigo, { color: colors.textPrimary }]}>{lote.codigo}</Text>
-                      <Text style={[styles.loteDetalhe, { color: colors.textSecondary }]}>
-                        val. {formatarData(lote.validade)} · {lote.quantidade} un.
-                      </Text>
-                    </View>
-                    <RiskBadge risco={lote.risco} diasParaVencer={dias} />
-                  </View>
-                );
-              })}
-
-              <TouchableOpacity
-                style={[styles.verDetalhesBtn, { borderColor: colors.border }]}
-                onPress={() => router.push(`/produto/${item.produto.id}`)}
-                activeOpacity={0.7}
-                accessibilityLabel={`Ver detalhes de ${item.produto.nome}`}
-              >
-                <Text style={[styles.verDetalhesTexto, { color: colors.textSecondary }]}>
-                  Ver detalhes  →
-                </Text>
-              </TouchableOpacity>
+            <View style={styles.expandirCol}>
+              <Text style={[styles.expandirNum, { color: colors.textDisabled }]}>
+                {item.lotes.length} {item.lotes.length === 1 ? 'lote' : 'lotes'}
+              </Text>
+              <Text style={[styles.expandirSeta, { color: colors.textDisabled }]}>
+                {expandido ? '▲' : '▼'}
+              </Text>
             </View>
-          </Animated.View>
-        )}
-      </View>
-    </Animated.View>
+          </TouchableOpacity>
+
+          {/* ── Lotes (colapsável) ── */}
+          {expandido && (
+            <FadeDown duration={220} springify={false}>
+              <View style={[styles.divider, { backgroundColor: colors.divider }]} />
+
+              <View style={styles.lotesWrap}>
+                {item.lotes.map((lote) => {
+                  const dias = diasParaVencer(lote.validade);
+                  const loteBorder =
+                    lote.risco === 'risco_alto' ? colors.riscoAlto
+                    : lote.risco === 'atencao'  ? colors.riscoAtencao
+                    : lote.risco === 'seguro'   ? colors.riscoSeguro
+                    : colors.border;
+                  return (
+                    <View key={lote.id} style={[styles.loteRow, { borderLeftColor: loteBorder, backgroundColor: colors.background }]}>
+                      <View style={styles.loteInfo}>
+                        <Text style={[styles.loteCodigo, { color: colors.textPrimary }]}>{lote.codigo}</Text>
+                        <Text style={[styles.loteDetalhe, { color: colors.textSecondary }]}>
+                          val. {formatarData(lote.validade)} · {lote.quantidade} un.
+                        </Text>
+                      </View>
+                      <RiskBadge risco={lote.risco} diasParaVencer={dias} />
+                    </View>
+                  );
+                })}
+
+                <TouchableOpacity
+                  style={[styles.verDetalhesBtn, { borderColor: colors.border }]}
+                  onPress={() => router.push(`/produto/${item.produto.id}`)}
+                  activeOpacity={0.7}
+                  accessibilityLabel={`Ver detalhes de ${item.produto.nome}`}
+                >
+                  <Text style={[styles.verDetalhesTexto, { color: colors.textSecondary }]}>
+                    Ver detalhes  →
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </FadeDown>
+          )}
+        </View>
+    </FadeDown>
   );
 }
 

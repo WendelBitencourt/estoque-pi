@@ -13,6 +13,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../theme';
 import { sairDaConta } from '../../services/authService';
+import { seedDadosHistoricos } from '../../services/seedService';
 import {
   carregarConfig,
   salvarConfig,
@@ -166,6 +167,22 @@ function Cartao({ children }: { children: React.ReactNode }) {
 export default function ConfiguracoesScreen() {
   const { colors, mode, setMode } = useTheme();
   const router = useRouter();
+  const [seedando, setSeedando] = useState(false);
+
+  async function handleSeedDados() {
+    setSeedando(true);
+    try {
+      const { mesesInseridos, entradas } = await seedDadosHistoricos();
+      Alert.alert(
+        'Dados inseridos!',
+        `${entradas} entradas históricas criadas para ${mesesInseridos} meses. Acesse a Lista de Necessidades para ver a sugestão do K-Means.`
+      );
+    } catch (e: any) {
+      Alert.alert('Erro', e.message ?? 'Não foi possível inserir os dados de teste.');
+    } finally {
+      setSeedando(false);
+    }
+  }
 
   async function executarSaida() {
     try {
@@ -398,6 +415,16 @@ export default function ConfiguracoesScreen() {
           <ItemNavegacao
             label="Política de privacidade"
             onPress={() => avisoEmBreve('Política de privacidade')}
+          />
+        </Cartao>
+
+        {/* ── Desenvolvimento ── */}
+        <SecaoHeader titulo="DESENVOLVIMENTO" emoji="🧪" />
+        <Cartao>
+          <ItemNavegacao
+            label={seedando ? 'Inserindo dados…' : 'Gerar histórico para K-Means'}
+            descricao="Insere 8 meses de entradas fictícias para testar a sugestão de doação"
+            onPress={handleSeedDados}
           />
         </Cartao>
 

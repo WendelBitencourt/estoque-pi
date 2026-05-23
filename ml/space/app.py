@@ -279,15 +279,17 @@ def agrupar_doacoes(entrada: EntradaAgrupamento):
             cluster_atual = int(labels[idx_atual])
             descricao_atual = clusters_out[cluster_atual].descricao
         else:
-            # Mês atual sem dados — encontra centroide mais próximo por mês do ano
+            # Mês atual sem dados — tenta mesmo mês em anos anteriores, senão usa média global
             meses_mesmo_mes = [
                 i for i, (a, m) in enumerate(chaves) if m == entrada.mes_atual
             ]
             if meses_mesmo_mes:
-                # Usa a média dos meses anteriores do mesmo mês como proxy
                 X_proxy = X[meses_mesmo_mes].mean(axis=0).reshape(1, -1)
-                cluster_atual = int(km.predict(X_proxy)[0])
-                descricao_atual = clusters_out[cluster_atual].descricao
+            else:
+                # Nenhum histórico do mesmo mês — usa média de todos os meses como proxy
+                X_proxy = X.mean(axis=0).reshape(1, -1)
+            cluster_atual = int(km.predict(X_proxy)[0])
+            descricao_atual = clusters_out[cluster_atual].descricao
 
     return SaidaAgrupamento(
         clusters=clusters_out,
