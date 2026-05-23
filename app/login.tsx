@@ -11,13 +11,25 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import Constants from 'expo-constants';
 import { useTheme } from '../theme';
 import { loginComGoogle, loginComEmail, criarContaComEmail, redefinirSenha, loginAnonimo } from '../services/authService';
 
-GoogleSignin.configure({
-  webClientId: '248660348216-5msumruutuim8mgft2b6ebu2h6p7oe1d.apps.googleusercontent.com',
-});
+// O @react-native-google-signin é um módulo nativo — não funciona no Expo Go,
+// só em builds nativos (APK/EAS Build). Carregamos por require dinâmico
+// pra que o app inteiro continue rodando no Expo Go para testes de layout.
+const isExpoGo =
+  Constants.executionEnvironment === 'storeClient' ||
+  (Constants as any).appOwnership === 'expo';
+
+let GoogleSignin: any = null;
+if (!isExpoGo) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  GoogleSignin = require('@react-native-google-signin/google-signin').GoogleSignin;
+  GoogleSignin.configure({
+    webClientId: '248660348216-5msumruutuim8mgft2b6ebu2h6p7oe1d.apps.googleusercontent.com',
+  });
+}
 
 type Modo = 'inicial' | 'email' | 'criar' | 'resetSenha';
 
@@ -32,6 +44,10 @@ export default function LoginScreen() {
   const [sucesso, setSucesso] = useState('');
 
   async function handleLoginGoogle() {
+    if (!GoogleSignin) {
+      setErro('Login com Google só funciona no APK instalado (não no Expo Go). Use e-mail ou modo visitante.');
+      return;
+    }
     try {
       setCarregando(true);
       setErro('');
