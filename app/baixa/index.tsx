@@ -397,51 +397,54 @@ function Passo3({
   const badgeTexto = isDescarte ? colors.riscoAltoDark : colors.primaryDark;
 
   return (
-    <View style={styles.passoWrap}>
-      <Text style={[styles.passoTitulo, { color: colors.textPrimary }]}>Tudo certo?</Text>
-      <Text style={[styles.passoSub, { color: colors.textSecondary }]}>
-        Confirme os dados antes de registrar a {isDescarte ? 'descarte' : 'saída'}.
-      </Text>
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        contentContainerStyle={[styles.passoWrap, { flexGrow: 1, paddingBottom: 8 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={[styles.passoTitulo, { color: colors.textPrimary }]}>Tudo certo?</Text>
+        <Text style={[styles.passoSub, { color: colors.textSecondary }]}>
+          Confirme os dados antes de registrar a {isDescarte ? 'descarte' : 'saída'}.
+        </Text>
 
-      <View style={[styles.confirmarCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <View style={styles.confirmarHeader}>
-          {produto.fotoUrl ? (
-            <Image source={{ uri: produto.fotoUrl }} style={styles.confirmarFoto} />
-          ) : (
-            <Text style={styles.confirmarEmoji}>{produto.emoji}</Text>
+        <View style={[styles.confirmarCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.confirmarHeader}>
+            {produto.fotoUrl ? (
+              <Image source={{ uri: produto.fotoUrl }} style={styles.confirmarFoto} />
+            ) : (
+              <Text style={styles.confirmarEmoji}>{produto.emoji}</Text>
+            )}
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.confirmarNome, { color: colors.textPrimary }]}>{produto.nome}</Text>
+              <Text style={[styles.confirmarSub, { color: colors.textSecondary }]}>Lote {lote.codigo}</Text>
+            </View>
+            <View style={[styles.tipoBadge, { backgroundColor: badgeBg }]}>
+              <Text style={[styles.tipoBadgeTexto, { color: badgeTexto }]}>
+                {isDescarte ? '🗑️ Descarte' : '📤 Saída'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
+
+          <View style={styles.confirmarLinhas}>
+            <ConfirmarLinha label="Quantidade" valor={quantidade} colors={colors} />
+            <ConfirmarLinha label="Validade do lote" valor={formatarData(lote.validade)} colors={colors} />
+            <ConfirmarLinha label="Restará no lote" valor={String(lote.quantidade - Number(quantidade))} colors={colors} />
+            <ConfirmarLinha label="Data do registro" valor={new Date().toLocaleDateString('pt-BR')} colors={colors} />
+          </View>
+
+          {isDescarte && (
+            <View style={[styles.alertaDescarte, { backgroundColor: colors.riscoAltoLight, borderTopColor: colors.divider }]}>
+              <Text style={[styles.alertaDescarteTex, { color: colors.riscoAltoDark }]}>
+                ⚠️  Esta ação registrará o produto como descartado e não poderá ser desfeita depois.
+              </Text>
+            </View>
           )}
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.confirmarNome, { color: colors.textPrimary }]}>{produto.nome}</Text>
-            <Text style={[styles.confirmarSub, { color: colors.textSecondary }]}>Lote {lote.codigo}</Text>
-          </View>
-          <View style={[styles.tipoBadge, { backgroundColor: badgeBg }]}>
-            <Text style={[styles.tipoBadgeTexto, { color: badgeTexto }]}>
-              {isDescarte ? '🗑️ Descarte' : '📤 Saída'}
-            </Text>
-          </View>
         </View>
+      </ScrollView>
 
-        <View style={[styles.divider, { backgroundColor: colors.divider }]} />
-
-        <View style={styles.confirmarLinhas}>
-          <ConfirmarLinha label="Quantidade" valor={quantidade} colors={colors} />
-          <ConfirmarLinha label="Validade do lote" valor={formatarData(lote.validade)} colors={colors} />
-          <ConfirmarLinha label="Restará no lote" valor={String(lote.quantidade - Number(quantidade))} colors={colors} />
-          <ConfirmarLinha label="Data do registro" valor={new Date().toLocaleDateString('pt-BR')} colors={colors} />
-        </View>
-
-        {isDescarte && (
-          <View style={[styles.alertaDescarte, { backgroundColor: colors.riscoAltoLight, borderTopColor: colors.divider }]}>
-            <Text style={[styles.alertaDescarteTex, { color: colors.riscoAltoDark }]}>
-              ⚠️  Esta ação registrará o produto como descartado e não poderá ser desfeita depois.
-            </Text>
-          </View>
-        )}
-      </View>
-
-      <View style={{ flex: 1 }} />
-
-      <View style={styles.botoesRow}>
+      <View style={[styles.botoesRow, styles.botoesFixos]}>
         <TouchableOpacity
           style={[styles.voltarBtn, { borderColor: colors.border }]}
           onPress={onVoltar}

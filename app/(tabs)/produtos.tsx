@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Platform,
   Image,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -124,7 +125,7 @@ export default function ProdutosScreen() {
           )}
         </View>
 
-        <View style={styles.chipsRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
           {categorias.map((cat) => {
             const ativo = filtroCategoria === cat.id;
             return (
@@ -143,7 +144,7 @@ export default function ProdutosScreen() {
               </TouchableOpacity>
             );
           })}
-        </View>
+        </ScrollView>
       </View>
 
       {carregando ? (
@@ -231,7 +232,7 @@ const styles = StyleSheet.create({
   buscaIcn:   { fontSize: 18 },
   buscaInput: { flex: 1, fontSize: 16 },
 
-  chipsRow:  { flexDirection: 'row', gap: 8 },
+  chipsRow:  { gap: 8, paddingBottom: 4 },
   chip:      { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, borderWidth: 1, minHeight: 44 },
   chipEmoji: { fontSize: 14 },
   chipLabel: { fontSize: 14, fontWeight: '600' },

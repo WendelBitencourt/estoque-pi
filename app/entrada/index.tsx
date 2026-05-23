@@ -265,7 +265,7 @@ function Passo2({
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={[styles.passoWrap, { flexGrow: 1 }]} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.passoWrap, { flexGrow: 1, paddingBottom: 8 }]} keyboardShouldPersistTaps="handled">
         <Text style={[styles.passoTitulo, { color: colors.textPrimary }]}>
           Quantos vieram?
         </Text>
@@ -371,27 +371,27 @@ function Passo2({
           </View>
         )}
 
-        <View style={{ flex: 1 }} />
-
-        <View style={styles.botoesRow}>
-          <TouchableOpacity
-            style={[styles.voltarBtn, { borderColor: colors.border }]}
-            onPress={onVoltar}
-          >
-            <Text style={[styles.voltarTexto, { color: colors.textSecondary }]}>← Voltar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.avancarBtnFlex, { backgroundColor: podeAvancar ? colors.primary : colors.surfaceSecondary }]}
-            onPress={onAvancar}
-            disabled={!podeAvancar}
-            activeOpacity={0.85}
-          >
-            <Text style={[styles.avancarTexto, { color: podeAvancar ? '#FFF' : colors.textDisabled }]}>
-              Revisar →
-            </Text>
-          </TouchableOpacity>
-        </View>
       </ScrollView>
+
+      {/* Botões fixos na base — sempre visíveis independente do tamanho do conteúdo */}
+      <View style={[styles.botoesRow, styles.botoesFixos]}>
+        <TouchableOpacity
+          style={[styles.voltarBtn, { borderColor: colors.border }]}
+          onPress={onVoltar}
+        >
+          <Text style={[styles.voltarTexto, { color: colors.textSecondary }]}>← Voltar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.avancarBtnFlex, { backgroundColor: podeAvancar ? colors.primary : colors.surfaceSecondary }]}
+          onPress={onAvancar}
+          disabled={!podeAvancar}
+          activeOpacity={0.85}
+        >
+          <Text style={[styles.avancarTexto, { color: podeAvancar ? '#FFF' : colors.textDisabled }]}>
+            Revisar →
+          </Text>
+        </TouchableOpacity>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -418,76 +418,79 @@ function Passo3({
   const { colors } = useTheme();
 
   return (
-    <View style={styles.passoWrap}>
-      <Text style={[styles.passoTitulo, { color: colors.textPrimary }]}>
-        Tudo certo?
-      </Text>
-      <Text style={[styles.passoSub, { color: colors.textSecondary }]}>
-        Confirme as informações antes de salvar.
-      </Text>
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        contentContainerStyle={[styles.passoWrap, { flexGrow: 1, paddingBottom: 8 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={[styles.passoTitulo, { color: colors.textPrimary }]}>
+          Tudo certo?
+        </Text>
+        <Text style={[styles.passoSub, { color: colors.textSecondary }]}>
+          Confirme as informações antes de salvar.
+        </Text>
 
-      {/* Card de confirmação */}
-      <View style={[styles.confirmarCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <View style={styles.confirmarHeader}>
-          {produto.fotoUrl ? (
-            <Image source={{ uri: produto.fotoUrl }} style={styles.confirmarFoto} />
-          ) : (
-            <Text style={styles.confirmarEmoji}>{produto.emoji}</Text>
-          )}
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.confirmarNome, { color: colors.textPrimary }]}>{produto.nome}</Text>
-            <Text style={[styles.confirmarSub, { color: colors.textSecondary }]}>Entrada de doação</Text>
-          </View>
-          <View style={[styles.entradaBadge, { backgroundColor: colors.riscoSeguroLight }]}>
-            <Text style={[styles.entradaBadgeTexto, { color: colors.riscoSeguroDark }]}>📥 Entrada</Text>
-          </View>
-        </View>
-
-        <View style={[styles.confirmarDivider, { backgroundColor: colors.divider }]} />
-
-        <View style={styles.confirmarLinhas}>
-          <View style={styles.confirmarLinha}>
-            <Text style={[styles.confirmarKey, { color: colors.textSecondary }]}>Quantidade</Text>
-            <Text style={[styles.confirmarVal, { color: colors.textPrimary }]}>
-              {quantidade}
-            </Text>
-          </View>
-          <View style={styles.confirmarLinha}>
-            <Text style={[styles.confirmarKey, { color: colors.textSecondary }]}>Validade</Text>
-            <Text style={[styles.confirmarVal, { color: colors.textPrimary }]}>{validade}</Text>
-          </View>
-          <View style={styles.confirmarLinha}>
-            <Text style={[styles.confirmarKey, { color: colors.textSecondary }]}>Data do registro</Text>
-            <Text style={[styles.confirmarVal, { color: colors.textPrimary }]}>
-              {new Date().toLocaleDateString('pt-BR')}
-            </Text>
-          </View>
-          {risco !== null && (
-            <View style={styles.confirmarLinha}>
-              <Text style={[styles.confirmarKey, { color: colors.textSecondary }]}>Risco</Text>
-              <View style={[styles.riscoPill, {
-                backgroundColor: risco === 'risco_alto' ? colors.riscoAltoLight
-                  : risco === 'atencao' ? colors.riscoAtencaoLight
-                  : colors.riscoSeguroLight,
-              }]}>
-                <Text style={[styles.riscoPillTexto, {
-                  color: risco === 'risco_alto' ? colors.riscoAltoDark
-                    : risco === 'atencao' ? colors.riscoAtencaoDark
-                    : colors.riscoSeguroDark,
-                }]}>
-                  {risco === 'risco_alto' ? '🔴 Alto risco'
-                    : risco === 'atencao' ? '🟡 Atenção'
-                    : '🟢 Seguro'}
-                </Text>
-              </View>
+        {/* Card de confirmação */}
+        <View style={[styles.confirmarCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={styles.confirmarHeader}>
+            {produto.fotoUrl ? (
+              <Image source={{ uri: produto.fotoUrl }} style={styles.confirmarFoto} />
+            ) : (
+              <Text style={styles.confirmarEmoji}>{produto.emoji}</Text>
+            )}
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.confirmarNome, { color: colors.textPrimary }]}>{produto.nome}</Text>
+              <Text style={[styles.confirmarSub, { color: colors.textSecondary }]}>Entrada de doação</Text>
             </View>
-          )}
+            <View style={[styles.entradaBadge, { backgroundColor: colors.riscoSeguroLight }]}>
+              <Text style={[styles.entradaBadgeTexto, { color: colors.riscoSeguroDark }]}>📥 Entrada</Text>
+            </View>
+          </View>
+
+          <View style={[styles.confirmarDivider, { backgroundColor: colors.divider }]} />
+
+          <View style={styles.confirmarLinhas}>
+            <View style={styles.confirmarLinha}>
+              <Text style={[styles.confirmarKey, { color: colors.textSecondary }]}>Quantidade</Text>
+              <Text style={[styles.confirmarVal, { color: colors.textPrimary }]}>
+                {quantidade}
+              </Text>
+            </View>
+            <View style={styles.confirmarLinha}>
+              <Text style={[styles.confirmarKey, { color: colors.textSecondary }]}>Validade</Text>
+              <Text style={[styles.confirmarVal, { color: colors.textPrimary }]}>{validade}</Text>
+            </View>
+            <View style={styles.confirmarLinha}>
+              <Text style={[styles.confirmarKey, { color: colors.textSecondary }]}>Data do registro</Text>
+              <Text style={[styles.confirmarVal, { color: colors.textPrimary }]}>
+                {new Date().toLocaleDateString('pt-BR')}
+              </Text>
+            </View>
+            {risco !== null && (
+              <View style={styles.confirmarLinha}>
+                <Text style={[styles.confirmarKey, { color: colors.textSecondary }]}>Risco</Text>
+                <View style={[styles.riscoPill, {
+                  backgroundColor: risco === 'risco_alto' ? colors.riscoAltoLight
+                    : risco === 'atencao' ? colors.riscoAtencaoLight
+                    : colors.riscoSeguroLight,
+                }]}>
+                  <Text style={[styles.riscoPillTexto, {
+                    color: risco === 'risco_alto' ? colors.riscoAltoDark
+                      : risco === 'atencao' ? colors.riscoAtencaoDark
+                      : colors.riscoSeguroDark,
+                  }]}>
+                    {risco === 'risco_alto' ? '🔴 Alto risco'
+                      : risco === 'atencao' ? '🟡 Atenção'
+                      : '🟢 Seguro'}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
         </View>
-      </View>
+      </ScrollView>
 
-      <View style={{ flex: 1 }} />
-
-      <View style={styles.botoesRow}>
+      <View style={[styles.botoesRow, styles.botoesFixos]}>
         <TouchableOpacity
           style={[styles.voltarBtn, { borderColor: colors.border }]}
           onPress={onVoltar}
@@ -827,6 +830,7 @@ const styles = StyleSheet.create({
 
 
   botoesRow: { flexDirection: 'row', gap: 12 },
+  botoesFixos: { paddingTop: 12, paddingBottom: 16 },
   voltarBtn: {
     flex: 1,
     paddingVertical: 18,
