@@ -338,6 +338,15 @@ export default function ProdutoDetalheScreen() {
               <Text style={styles.acaoEmoji}>📤</Text>
               <Text style={[styles.acaoTexto, { color: colors.textPrimary }]}>Registrar{'\n'}saída</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.acaoBotao, { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border }]}
+              onPress={() => router.push(`/cadastro?produtoId=${produto.id}`)}
+              activeOpacity={0.85}
+              accessibilityLabel="Editar produto"
+            >
+              <Text style={styles.acaoEmoji}>✏️</Text>
+              <Text style={[styles.acaoTexto, { color: colors.textPrimary }]}>Editar{'\n'}produto</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Visibilidade na lista de necessidades */}

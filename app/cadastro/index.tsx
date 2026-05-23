@@ -20,7 +20,8 @@ import { useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../../theme';
 import * as ImagePicker from 'expo-image-picker';
 import { buscarPorEan } from '../../services/barcode';
-import { criarProduto } from '../../services/produtosService';
+import { criarProduto, atualizarProduto, getProdutoById } from '../../services/produtosService';
+import { Stack } from 'expo-router';
 import { uploadFoto } from '../../services/storageService';
 import { BarcodeScanner } from '../../components/BarcodeScanner';
 import { CategoriaItem, CATEGORIAS_PADRAO, subscribeCategorias } from '../../services/categoriasService';
@@ -29,7 +30,8 @@ import { CategoriaItem, CATEGORIAS_PADRAO, subscribeCategorias } from '../../ser
 
 export default function CadastroScreen() {
   const { colors } = useTheme();
-  const { ean: eanParam } = useLocalSearchParams<{ ean?: string }>();
+  const { ean: eanParam, produtoId } = useLocalSearchParams<{ ean?: string; produtoId?: string }>();
+  const modoEdicao = Boolean(produtoId);
 
   const [nome, setNome] = useState('');
   const [categoria, setCategoria] = useState<string | null>(null);
@@ -48,6 +50,20 @@ export default function CadastroScreen() {
   const [promptNaoEncontrado, setPromptNaoEncontrado] = useState(false);
 
   const podeEnviar = nome.trim().length >= 2 && categoria !== null;
+
+  // Pré-preenche o formulário quando abre em modo edição
+  useEffect(() => {
+    if (!produtoId) return;
+    getProdutoById(produtoId).then((produto) => {
+      if (!produto) return;
+      setNome(produto.nome);
+      setCategoria(produto.categoria);
+      setEan(produto.ean ?? null);
+      setConteudo(produto.conteudo ?? '');
+      setFotoUrl(produto.fotoUrl ?? null);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Auto-preenche quando a tela abre com ?ean= (vindo da tela de entrada)
   useEffect(() => {
@@ -169,17 +185,28 @@ export default function CadastroScreen() {
     setSalvando(true);
     try {
       const cat = categorias.find((c) => c.id === categoria);
-      await criarProduto({
-        nome: nome.trim(),
-        categoria: categoria!,
-        emoji: cat?.emoji ?? '📦',
-        ean: ean ?? undefined,
-        fotoUrl: fotoUrl ?? undefined,
-        conteudo: conteudo.trim() || undefined,
-      });
+      if (modoEdicao && produtoId) {
+        await atualizarProduto(produtoId, {
+          nome: nome.trim(),
+          categoria: categoria!,
+          emoji: cat?.emoji ?? '📦',
+          ean: ean ?? undefined,
+          fotoUrl: fotoUrl ?? undefined,
+          conteudo: conteudo.trim() || undefined,
+        });
+      } else {
+        await criarProduto({
+          nome: nome.trim(),
+          categoria: categoria!,
+          emoji: cat?.emoji ?? '📦',
+          ean: ean ?? undefined,
+          fotoUrl: fotoUrl ?? undefined,
+          conteudo: conteudo.trim() || undefined,
+        });
+      }
       setSucesso(true);
     } catch {
-      Alert.alert('Produto não salvo', 'Não foi possível salvar o cadastro. Verifique a conexão e tente novamente.');
+      Alert.alert('Produto não salvo', 'Não foi possível salvar. Verifique a conexão e tente novamente.');
     } finally {
       setSalvando(false);
     }
@@ -195,47 +222,61 @@ export default function CadastroScreen() {
             <Text style={s.sucessoEmoji}>{cat?.emoji ?? '📦'}</Text>
           </View>
           <Text style={[s.sucessoTitulo, { color: colors.textPrimary }]}>
-            Produto cadastrado!
+            {modoEdicao ? 'Produto atualizado!' : 'Produto cadastrado!'}
           </Text>
           <Text style={[s.sucessoSub, { color: colors.textSecondary }]}>
-            "{nome}" foi adicionado ao estoque.{'\n'}Agora você pode registrar entradas dele.
+            {modoEdicao
+              ? `As informações de "${nome}" foram salvas.`
+              : `"${nome}" foi adicionado ao estoque.\nAgora você pode registrar entradas dele.`}
           </Text>
 
-          <TouchableOpacity
-            style={[s.botaoPrimario, { backgroundColor: colors.primary }]}
-            onPress={() => router.replace('/entrada')}
-            activeOpacity={0.85}
-          >
-            <Text style={s.botaoPrimarioTexto}>📥  Registrar entrada agora</Text>
-          </TouchableOpacity>
+          {modoEdicao ? (
+            <TouchableOpacity
+              style={[s.botaoPrimario, { backgroundColor: colors.primary }]}
+              onPress={() => router.back()}
+              activeOpacity={0.85}
+            >
+              <Text style={s.botaoPrimarioTexto}>← Voltar ao produto</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={[s.botaoPrimario, { backgroundColor: colors.primary }]}
+                onPress={() => router.replace('/entrada')}
+                activeOpacity={0.85}
+              >
+                <Text style={s.botaoPrimarioTexto}>📥  Registrar entrada agora</Text>
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[s.botaoSecundario, { borderColor: colors.border }]}
-            onPress={() => {
-              setNome('');
-              setCategoria(null);
-              setEan(null);
-              setConteudo('');
-              setFotoUrl(null);
-              setFotoComErro(false);
-              setFonteDados(null);
-              setSucesso(false);
-            }}
-          >
-            <Text style={[s.botaoSecundarioTexto, { color: colors.textSecondary }]}>
-              Cadastrar outro produto
-            </Text>
-          </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.botaoSecundario, { borderColor: colors.border }]}
+                onPress={() => {
+                  setNome('');
+                  setCategoria(null);
+                  setEan(null);
+                  setConteudo('');
+                  setFotoUrl(null);
+                  setFotoComErro(false);
+                  setFonteDados(null);
+                  setSucesso(false);
+                }}
+              >
+                <Text style={[s.botaoSecundarioTexto, { color: colors.textSecondary }]}>
+                  Cadastrar outro produto
+                </Text>
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => router.replace('/')}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            accessibilityLabel="Voltar para o início"
-          >
-            <Text style={[s.linkTexto, { color: colors.primary }]}>
-              Voltar para o início
-            </Text>
-          </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => router.replace('/')}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityLabel="Voltar para o início"
+              >
+                <Text style={[s.linkTexto, { color: colors.primary }]}>
+                  Voltar para o início
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </SafeAreaView>
     );
@@ -244,6 +285,7 @@ export default function CadastroScreen() {
   // ── formulário ───────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: colors.background }]} edges={['bottom']}>
+      <Stack.Screen options={{ title: modoEdicao ? 'Editar Produto' : 'Novo Produto' }} />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

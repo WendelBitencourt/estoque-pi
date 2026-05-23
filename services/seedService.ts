@@ -22,10 +22,14 @@ export async function seedDadosHistoricos(): Promise<{ mesesInseridos: number; e
   const categorias = Object.keys(produtoPorCategoria);
   if (categorias.length === 0) throw new Error('Nenhuma categoria encontrada nos produtos.');
 
-  // 9 padrões mensais com 3 clusters distintos (8 meses atrás + mês atual):
+  // 18 padrões mensais com 3 clusters distintos (17 meses atrás + mês atual):
   // A = doação alta · B = doação baixa · C = doação média
-  // Sequência: A B A B C A B C C — último item = mês atual (mês corrente)
-  const FATORES_MENSAIS = [3.2, 0.8, 3.5, 0.7, 1.8, 3.1, 0.9, 1.7, 1.6];
+  // Sequência variada para que o K-Means forme clusters claros ao longo de 1 ano e meio
+  const FATORES_MENSAIS = [
+    3.2, 0.8, 3.5, 0.7, 1.8, 3.1, // meses 17–12 atrás
+    0.9, 1.7, 3.3, 0.6, 2.0, 3.4, // meses 11–6 atrás
+    0.8, 1.9, 3.0, 1.5, 0.7, 1.8, // meses 5–0 (último = mês atual)
+  ];
 
   // Quantidade base por posição da categoria (simula que algumas recebem mais)
   const BASE_POR_CAT_IDX = [60, 25, 12, 10, 8];

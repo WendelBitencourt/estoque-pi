@@ -2,6 +2,8 @@ import {
   GoogleAuthProvider,
   signInWithCredential,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signInAnonymously as firebaseAnon,
   signOut as firebaseSignOut,
   User,
@@ -20,6 +22,15 @@ export async function loginComGoogle(
 export async function loginComEmail(email: string, senha: string): Promise<User> {
   const result = await signInWithEmailAndPassword(auth, email, senha);
   return result.user;
+}
+
+export async function criarContaComEmail(email: string, senha: string): Promise<User> {
+  const result = await createUserWithEmailAndPassword(auth, email, senha);
+  return result.user;
+}
+
+export async function redefinirSenha(email: string): Promise<void> {
+  await sendPasswordResetEmail(auth, email);
 }
 
 export async function loginAnonimo(): Promise<User> {

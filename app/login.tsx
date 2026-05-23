@@ -7,7 +7,6 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,22 +14,24 @@ import { useState, useEffect } from 'react';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { useTheme } from '../theme';
-import { loginComGoogle, loginComEmail, loginAnonimo } from '../services/authService';
+import { loginComGoogle, loginComEmail, criarContaComEmail, redefinirSenha, loginAnonimo } from '../services/authService';
 
 WebBrowser.maybeCompleteAuthSession();
 
 const GOOGLE_WEB_CLIENT_ID =
   '248660348216-5msumruutuim8mgft2b6ebu2h6p7oe1d.apps.googleusercontent.com';
 
-type Modo = 'inicial' | 'email';
+type Modo = 'inicial' | 'email' | 'criar' | 'resetSenha';
 
 export default function LoginScreen() {
   const { colors } = useTheme();
   const [modo, setModo] = useState<Modo>('inicial');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
+  const [confirmarSenha, setConfirmarSenha] = useState('');
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState('');
+  const [sucesso, setSucesso] = useState('');
 
   const [request, response, promptAsync] = Google.useAuthRequest({
     clientId: GOOGLE_WEB_CLIENT_ID,
@@ -77,6 +78,56 @@ export default function LoginScreen() {
     } finally {
       setCarregando(false);
     }
+  }
+
+  async function handleCriarConta() {
+    if (!email.trim() || !senha) {
+      setErro('Preencha o e-mail e a senha.');
+      return;
+    }
+    if (senha !== confirmarSenha) {
+      setErro('As senhas não coincidem.');
+      return;
+    }
+    if (senha.length < 6) {
+      setErro('A senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
+    try {
+      setCarregando(true);
+      setErro('');
+      await criarContaComEmail(email.trim(), senha);
+    } catch {
+      setErro('Não foi possível criar a conta. O e-mail já pode estar em uso.');
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  async function handleResetSenha() {
+    if (!email.trim()) {
+      setErro('Informe o e-mail cadastrado.');
+      return;
+    }
+    try {
+      setCarregando(true);
+      setErro('');
+      await redefinirSenha(email.trim());
+      setSucesso('Link de recuperação enviado! Verifique sua caixa de entrada.');
+    } catch {
+      setErro('Não foi possível enviar o e-mail. Verifique se o endereço está correto.');
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  function voltarParaInicial() {
+    setModo('inicial');
+    setErro('');
+    setSucesso('');
+    setEmail('');
+    setSenha('');
+    setConfirmarSenha('');
   }
 
   async function handleLoginAnonimo() {
@@ -140,10 +191,10 @@ export default function LoginScreen() {
           </View>
 
           {/* ── E-mail / senha ── */}
-          {modo === 'inicial' ? (
+          {modo === 'inicial' && (
             <TouchableOpacity
               style={[styles.botaoSecundario, { borderColor: colors.border, backgroundColor: colors.surface }]}
-              onPress={() => { setModo('email'); setErro(''); }}
+              onPress={() => { setModo('email'); setErro(''); setSucesso(''); }}
               activeOpacity={0.8}
             >
               <Text style={styles.botaoSecEmoji}>✉️</Text>
@@ -151,7 +202,10 @@ export default function LoginScreen() {
                 Entrar com e-mail e senha
               </Text>
             </TouchableOpacity>
-          ) : (
+          )}
+
+          {/* ── Formulário: login por e-mail ── */}
+          {modo === 'email' && (
             <View style={[styles.emailCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Text style={[styles.campoLabel, { color: colors.textSecondary }]}>E-mail</Text>
               <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.background }]}>
@@ -167,9 +221,7 @@ export default function LoginScreen() {
                 />
               </View>
 
-              <Text style={[styles.campoLabel, { color: colors.textSecondary, marginTop: 12 }]}>
-                Senha
-              </Text>
+              <Text style={[styles.campoLabel, { color: colors.textSecondary, marginTop: 12 }]}>Senha</Text>
               <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.background }]}>
                 <TextInput
                   style={[styles.input, { color: colors.textPrimary }]}
@@ -183,21 +235,24 @@ export default function LoginScreen() {
                 />
               </View>
 
+              <TouchableOpacity
+                onPress={() => { setModo('resetSenha'); setErro(''); setSucesso(''); }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={{ alignSelf: 'flex-end', marginTop: 8 }}
+              >
+                <Text style={[styles.linkTexto, { color: colors.primary }]}>Esqueci minha senha</Text>
+              </TouchableOpacity>
+
               <View style={styles.emailBotoes}>
                 <TouchableOpacity
                   style={[styles.voltarBtn, { borderColor: colors.border }]}
-                  onPress={() => { setModo('inicial'); setErro(''); }}
+                  onPress={voltarParaInicial}
                 >
-                  <Text style={[styles.voltarTexto, { color: colors.textSecondary }]}>
-                    Voltar
-                  </Text>
+                  <Text style={[styles.voltarTexto, { color: colors.textSecondary }]}>Voltar</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[
-                    styles.entrarBtn,
-                    { backgroundColor: carregando ? colors.surfaceSecondary : colors.primary },
-                  ]}
+                  style={[styles.entrarBtn, { backgroundColor: carregando ? colors.surfaceSecondary : colors.primary }]}
                   onPress={handleLoginEmail}
                   disabled={carregando}
                   activeOpacity={0.85}
@@ -209,35 +264,144 @@ export default function LoginScreen() {
                   )}
                 </TouchableOpacity>
               </View>
+
+              <TouchableOpacity
+                onPress={() => { setModo('criar'); setErro(''); setSucesso(''); }}
+                style={{ alignItems: 'center', marginTop: 16 }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={[styles.linkTexto, { color: colors.textSecondary }]}>
+                  Primeira vez?{' '}
+                  <Text style={{ color: colors.primary }}>Criar conta</Text>
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
 
-          {/* ── SMS (em breve) ── */}
-          <TouchableOpacity
-            style={[
-              styles.botaoSecundario,
-              { borderColor: colors.border, backgroundColor: colors.surface, marginTop: 12 },
-            ]}
-            onPress={() =>
-              Alert.alert(
-                'Login por SMS',
-                'Para usar o login por SMS é necessária uma versão instalada do app. Por enquanto use Google ou e-mail.',
-                [{ text: 'OK' }]
-              )
-            }
-            activeOpacity={0.8}
-          >
-            <Text style={styles.botaoSecEmoji}>📱</Text>
-            <Text style={[styles.botaoSecTexto, { color: colors.textPrimary }]}>
-              Entrar com SMS
-            </Text>
-            <Text style={[styles.emBreve, { color: colors.textDisabled }]}>em breve</Text>
-          </TouchableOpacity>
+          {/* ── Formulário: criar conta ── */}
+          {modo === 'criar' && (
+            <View style={[styles.emailCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Text style={[styles.campoLabel, { color: colors.textSecondary }]}>E-mail</Text>
+              <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                <TextInput
+                  style={[styles.input, { color: colors.textPrimary }]}
+                  placeholder="seuemail@exemplo.com"
+                  placeholderTextColor={colors.textDisabled}
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoFocus
+                />
+              </View>
 
-          {/* ── Erros ── */}
+              <Text style={[styles.campoLabel, { color: colors.textSecondary, marginTop: 12 }]}>Senha</Text>
+              <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                <TextInput
+                  style={[styles.input, { color: colors.textPrimary }]}
+                  placeholder="Mínimo 6 caracteres"
+                  placeholderTextColor={colors.textDisabled}
+                  value={senha}
+                  onChangeText={setSenha}
+                  secureTextEntry
+                />
+              </View>
+
+              <Text style={[styles.campoLabel, { color: colors.textSecondary, marginTop: 12 }]}>Confirmar senha</Text>
+              <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                <TextInput
+                  style={[styles.input, { color: colors.textPrimary }]}
+                  placeholder="••••••••"
+                  placeholderTextColor={colors.textDisabled}
+                  value={confirmarSenha}
+                  onChangeText={setConfirmarSenha}
+                  secureTextEntry
+                  returnKeyType="go"
+                  onSubmitEditing={handleCriarConta}
+                />
+              </View>
+
+              <View style={styles.emailBotoes}>
+                <TouchableOpacity
+                  style={[styles.voltarBtn, { borderColor: colors.border }]}
+                  onPress={() => { setModo('email'); setErro(''); setConfirmarSenha(''); }}
+                >
+                  <Text style={[styles.voltarTexto, { color: colors.textSecondary }]}>Voltar</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.entrarBtn, { backgroundColor: carregando ? colors.surfaceSecondary : colors.primary }]}
+                  onPress={handleCriarConta}
+                  disabled={carregando}
+                  activeOpacity={0.85}
+                >
+                  {carregando ? (
+                    <ActivityIndicator color={colors.primary} size="small" />
+                  ) : (
+                    <Text style={styles.entrarTexto}>Criar conta</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* ── Formulário: recuperar senha ── */}
+          {modo === 'resetSenha' && (
+            <View style={[styles.emailCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Text style={[styles.cardTitulo, { color: colors.textPrimary }]}>Recuperar senha</Text>
+              <Text style={[styles.cardDescricao, { color: colors.textSecondary }]}>
+                Informe o e-mail cadastrado e enviaremos um link para redefinir sua senha.
+              </Text>
+
+              <Text style={[styles.campoLabel, { color: colors.textSecondary, marginTop: 4 }]}>E-mail</Text>
+              <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                <TextInput
+                  style={[styles.input, { color: colors.textPrimary }]}
+                  placeholder="seuemail@exemplo.com"
+                  placeholderTextColor={colors.textDisabled}
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoFocus
+                  returnKeyType="go"
+                  onSubmitEditing={handleResetSenha}
+                />
+              </View>
+
+              <View style={styles.emailBotoes}>
+                <TouchableOpacity
+                  style={[styles.voltarBtn, { borderColor: colors.border }]}
+                  onPress={() => { setModo('email'); setErro(''); setSucesso(''); }}
+                >
+                  <Text style={[styles.voltarTexto, { color: colors.textSecondary }]}>Voltar</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.entrarBtn, { backgroundColor: carregando ? colors.surfaceSecondary : colors.primary }]}
+                  onPress={handleResetSenha}
+                  disabled={carregando}
+                  activeOpacity={0.85}
+                >
+                  {carregando ? (
+                    <ActivityIndicator color={colors.primary} size="small" />
+                  ) : (
+                    <Text style={styles.entrarTexto}>Enviar link</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* ── Feedback ── */}
           {erro.length > 0 && (
             <View style={[styles.erroWrap, { backgroundColor: colors.riscoAltoLight }]}>
               <Text style={[styles.erroTexto, { color: colors.riscoAltoDark }]}>{erro}</Text>
+            </View>
+          )}
+          {sucesso.length > 0 && (
+            <View style={[styles.erroWrap, { backgroundColor: colors.riscoSeguroLight }]}>
+              <Text style={[styles.erroTexto, { color: colors.riscoSeguroDark }]}>{sucesso}</Text>
             </View>
           )}
 
@@ -330,9 +494,11 @@ const styles = StyleSheet.create({
   },
   botaoSecEmoji: { fontSize: 20 },
   botaoSecTexto: { flex: 1, fontSize: 16, fontWeight: '600' },
-  emBreve: { fontSize: 12 },
 
   emailCard: { borderRadius: 16, borderWidth: 1, padding: 18 },
+  cardTitulo: { fontSize: 17, fontWeight: '700', marginBottom: 6 },
+  cardDescricao: { fontSize: 14, lineHeight: 20, marginBottom: 12 },
+  linkTexto: { fontSize: 13, fontWeight: '600' },
   campoLabel: { fontSize: 13, fontWeight: '700', letterSpacing: 0.3, marginBottom: 6 },
   inputWrap: {
     borderWidth: 1,

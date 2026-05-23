@@ -90,6 +90,13 @@ export async function getProdutoPorEan(ean: string): Promise<Produto | null> {
   return docToProduto(snap.docs[0]);
 }
 
+export async function atualizarProduto(
+  id: string,
+  dados: Partial<Pick<Produto, 'nome' | 'categoria' | 'emoji' | 'ean' | 'fotoUrl' | 'conteudo'>>
+): Promise<void> {
+  await updateDoc(doc(db, COL, id), dados);
+}
+
 export async function atualizarMediaConsumo(produtoId: string, mediaConsumoDias: number): Promise<void> {
   await updateDoc(doc(db, COL, produtoId), { mediaConsumoDias });
 }

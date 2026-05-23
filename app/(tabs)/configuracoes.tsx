@@ -12,7 +12,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../theme';
-import { sairDaConta } from '../../services/authService';
+import { sairDaConta, redefinirSenha } from '../../services/authService';
+import { useAuth } from '../../contexts/AuthContext';
 import { seedDadosHistoricos } from '../../services/seedService';
 import {
   carregarConfig,
@@ -167,7 +168,11 @@ function Cartao({ children }: { children: React.ReactNode }) {
 export default function ConfiguracoesScreen() {
   const { colors, mode, setMode } = useTheme();
   const router = useRouter();
+  const { user } = useAuth();
   const [seedando, setSeedando] = useState(false);
+
+  const isEmailUser = user?.providerData.some((p) => p.providerId === 'password') ?? false;
+  const isDev = user?.uid === 'YqtgWYsO56R78dAdTcFzyIzSxgr1';
 
   async function handleSeedDados() {
     setSeedando(true);
@@ -263,6 +268,21 @@ export default function ConfiguracoesScreen() {
     }
     setAlertaEstoqueZerado(ativar);
     await salvarConfig({ resumoDiario: notifDiarias, horaResumo, alertaEstoqueZerado: ativar });
+  }
+
+  async function handleAlterarSenha() {
+    const email = user?.email;
+    if (!email) return;
+    try {
+      await redefinirSenha(email);
+      Alert.alert(
+        'E-mail enviado',
+        `Um link para redefinir sua senha foi enviado para ${email}. Verifique sua caixa de entrada.`,
+        [{ text: 'OK' }]
+      );
+    } catch {
+      Alert.alert('Erro', 'Não foi possível enviar o e-mail. Tente novamente.', [{ text: 'OK' }]);
+    }
   }
 
   function avisoEmBreve(funcionalidade: string) {
@@ -377,15 +397,13 @@ export default function ConfiguracoesScreen() {
         {/* ── Conta e segurança ── */}
         <SecaoHeader titulo="CONTA E SEGURANÇA" emoji="🔒" />
         <Cartao>
-          <ItemNavegacao
-            label="Alterar senha"
-            onPress={() => avisoEmBreve('Alterar senha')}
-          />
-          <ItemNavegacao
-            label="Exportar todos os dados"
-            descricao="Baixar um arquivo com todo o histórico"
-            onPress={() => avisoEmBreve('Exportar dados')}
-          />
+          {isEmailUser && (
+            <ItemNavegacao
+              label="Alterar senha"
+              descricao="Enviaremos um link de redefinição por e-mail"
+              onPress={handleAlterarSenha}
+            />
+          )}
           <ItemNavegacao
             label="Sair da conta"
             danger
@@ -418,15 +436,19 @@ export default function ConfiguracoesScreen() {
           />
         </Cartao>
 
-        {/* ── Desenvolvimento ── */}
-        <SecaoHeader titulo="DESENVOLVIMENTO" emoji="🧪" />
-        <Cartao>
-          <ItemNavegacao
-            label={seedando ? 'Inserindo dados…' : 'Gerar histórico para K-Means'}
-            descricao="Insere 8 meses de entradas fictícias para testar a sugestão de doação"
-            onPress={handleSeedDados}
-          />
-        </Cartao>
+        {/* ── Desenvolvimento (visível apenas para dev@dev.com) ── */}
+        {isDev && (
+          <>
+            <SecaoHeader titulo="DESENVOLVIMENTO" emoji="🧪" />
+            <Cartao>
+              <ItemNavegacao
+                label={seedando ? 'Inserindo dados…' : 'Gerar histórico para K-Means'}
+                descricao="Insere 18 meses de entradas fictícias para testar a sugestão de doação"
+                onPress={handleSeedDados}
+              />
+            </Cartao>
+          </>
+        )}
 
         {/* Rodapé */}
         <View style={styles.rodape}>
