@@ -10,26 +10,14 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState, useEffect } from 'react';
-import * as Google from 'expo-auth-session/providers/google';
-import { makeRedirectUri } from 'expo-auth-session';
-import * as WebBrowser from 'expo-web-browser';
+import { useState } from 'react';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { useTheme } from '../theme';
 import { loginComGoogle, loginComEmail, criarContaComEmail, redefinirSenha, loginAnonimo } from '../services/authService';
 
-WebBrowser.maybeCompleteAuthSession();
-
-const GOOGLE_WEB_CLIENT_ID =
-  '248660348216-5msumruutuim8mgft2b6ebu2h6p7oe1d.apps.googleusercontent.com';
-
-// O proxy do Expo (https://auth.expo.io) recebe o callback do Google e faz o deep link
-// de volta para o app — evita a restrição de esquemas personalizados do Android OAuth.
-const redirectUri = makeRedirectUri({ useProxy: true });
-
-const googleAuthConfig = {
-  clientId: GOOGLE_WEB_CLIENT_ID,
-  redirectUri,
-};
+GoogleSignin.configure({
+  webClientId: '248660348216-5msumruutuim8mgft2b6ebu2h6p7oe1d.apps.googleusercontent.com',
+});
 
 type Modo = 'inicial' | 'email' | 'criar' | 'resetSenha';
 
@@ -43,28 +31,15 @@ export default function LoginScreen() {
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
 
-  const [request, response, promptAsync] = Google.useAuthRequest(googleAuthConfig);
-
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const idToken = response.params.id_token ?? null;
-      const accessToken = response.params.access_token ?? null;
-      if (idToken || accessToken) {
-        handleLoginGoogle(idToken, accessToken);
-      } else {
-        setErro('Não foi possível obter credenciais do Google.');
-      }
-    } else if (response?.type === 'error') {
-      setErro('Não foi possível entrar com Google. Tente novamente.');
-    }
-  }, [response]);
-
-  async function handleLoginGoogle(idToken: string | null, accessToken: string | null) {
+  async function handleLoginGoogle() {
     try {
       setCarregando(true);
       setErro('');
-      await loginComGoogle(idToken, accessToken);
-      // AuthContext detecta o usuário e _layout redireciona para /
+      await GoogleSignin.hasPlayServices();
+      const resultado = await GoogleSignin.signIn();
+      if (resultado.type === 'success') {
+        await loginComGoogle(resultado.data.idToken);
+      }
     } catch {
       setErro('Não foi possível entrar com Google. Feche o app e tente novamente.');
     } finally {
@@ -179,10 +154,10 @@ export default function LoginScreen() {
             style={[
               styles.botaoGoogle,
               { borderColor: colors.border },
-              (!request || carregando) && { opacity: 0.6 },
+              carregando && { opacity: 0.6 },
             ]}
-            onPress={() => { setErro(''); promptAsync({ useProxy: true }); }}
-            disabled={!request || carregando}
+            onPress={handleLoginGoogle}
+            disabled={carregando}
             activeOpacity={0.85}
           >
             <Text style={styles.googleG}>G</Text>
