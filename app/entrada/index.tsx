@@ -305,7 +305,7 @@ function Passo2({
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={[styles.passoWrap, { flexGrow: 1, paddingBottom: 8 }]} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={styles.passoScroll} keyboardShouldPersistTaps="handled">
         <Text style={[styles.passoTitulo, { color: colors.textPrimary }]}>
           Quantos vieram?
         </Text>
@@ -486,7 +486,7 @@ function Passo3({
     <View style={{ flex: 1 }}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={[styles.passoWrap, { flexGrow: 1, paddingBottom: 8 }]}
+        contentContainerStyle={styles.passoScroll}
         showsVerticalScrollIndicator={false}
       >
         <Text style={[styles.passoTitulo, { color: colors.textPrimary }]}>
@@ -870,6 +870,10 @@ const styles = StyleSheet.create({
   produtoResumoEmoji: { fontSize: 28 },
   produtoResumoFoto: { width: 40, height: 40, borderRadius: 10 },
   produtoResumoNome: { fontSize: 18, fontWeight: '700' },
+
+  // Para ScrollView contentContainerStyle: NÃO usar flex:1 (clipa o overflow);
+  // usar flexGrow:1 para permitir scroll quando o conteúdo excede o viewport.
+  passoScroll: { paddingTop: 24, paddingBottom: 8, gap: 16, flexGrow: 1 },
 
   campoWrap: { gap: 8 },
   campoLabel: { fontSize: 14, fontWeight: '700', letterSpacing: 0.3 },
