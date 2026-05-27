@@ -54,3 +54,8 @@ scripts/
 
 CLAUDE.md
 
+# assets de documentação (não fazem parte do app)
+assets/diagrama_arquitetura.png
+assets/diagrama_arquitetura.svg
+assets/build_odt.py
+
