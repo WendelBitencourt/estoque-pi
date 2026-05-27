@@ -20,11 +20,12 @@ import { RiskBadge } from '../../components/RiskBadge';
 import { FadeDown, ScaleIn } from '../../components/AnimEntrance';
 import { Produto, Lote } from '../../services/tipos';
 import { subscribeToProdutos, getProdutoById } from '../../services/produtosService';
-import { atualizarMediaConsumo } from '../../services/produtosService';
-import { subscribeLotesByProduto, ajustarQuantidadeLote } from '../../services/lotesService';
+import { atualizarMediaConsumo, toggleOcultarNecessidades } from '../../services/produtosService';
+import { subscribeLotesByProduto, ajustarQuantidadeLote, getQuantidadeTotalProduto } from '../../services/lotesService';
 import { criarMovimentacao, recalcularMediaConsumo } from '../../services/movimentacoesService';
 import { diasParaVencer } from '../../services/risco';
 import { notificarEstoqueZerado } from '../../services/notificacoesService';
+import { EstoqueZeradoModal } from '../../components/EstoqueZeradoModal';
 
 type TipoBaixa = 'saida' | 'descarte';
 
@@ -547,6 +548,8 @@ export default function BaixaScreen() {
   const [lote, setLote] = useState<Lote | null>(null);
   const [quantidade, setQuantidade] = useState('1');
   const [tipo, setTipo] = useState<TipoBaixa>('saida');
+  const [zeroAlert, setZeroAlert] = useState<{ codigoLote: string; esgotado: boolean } | null>(null);
+  const [naLista, setNaLista] = useState(false);
 
   useEffect(() => {
     const unsub = subscribeToProdutos(setProdutos);
@@ -569,6 +572,7 @@ export default function BaixaScreen() {
     setLote(null);
     setQuantidade('1');
     setTipo('saida');
+    setZeroAlert(null);
   }
 
   function novaBaixaMesmoProduto() {
@@ -578,6 +582,22 @@ export default function BaixaScreen() {
     setQuantidade('1');
     setTipo('saida');
     setPasso(1);
+    setZeroAlert(null);
+  }
+
+  async function handleAdicionarNecessidades() {
+    if (!produto) return;
+    try {
+      await toggleOcultarNecessidades(produto.id, false);
+      setNaLista(true);
+    } catch {
+      Alert.alert('Erro', 'Não foi possível adicionar à lista de necessidades. Tente novamente.');
+    }
+  }
+
+  function handleVerLista() {
+    setZeroAlert(null);
+    router.replace('/necessidades');
   }
 
   async function handleConfirmar() {
@@ -599,7 +619,11 @@ export default function BaixaScreen() {
       }
       // Alerta imediato se este lote ficou zerado
       if (lote.quantidade - qtd <= 0) {
-        notificarEstoqueZerado(produto.nome).catch(() => {});
+        const totalProduto = await getQuantidadeTotalProduto(produto.id);
+        const esgotado = totalProduto <= 0;
+        notificarEstoqueZerado(produto.nome, esgotado, lote.codigo).catch(() => {});
+        setNaLista(!produto.ocultarNecessidades);
+        setZeroAlert({ codigoLote: lote.codigo, esgotado });
       }
       setSucesso(true);
     } catch {
@@ -610,13 +634,27 @@ export default function BaixaScreen() {
 
   if (sucesso && produto) {
     return (
-      <Sucesso
-        produto={produto}
-        quantidade={quantidade}
-        tipo={tipo}
-        onNovo={novaBaixaMesmoProduto}
-        onVoltar={() => router.replace('/')}
-      />
+      <>
+        <Sucesso
+          produto={produto}
+          quantidade={quantidade}
+          tipo={tipo}
+          onNovo={novaBaixaMesmoProduto}
+          onVoltar={() => router.replace('/')}
+        />
+        {zeroAlert && (
+          <EstoqueZeradoModal
+            visivel
+            nomeProduto={produto.nome}
+            codigoLote={zeroAlert.codigoLote}
+            esgotado={zeroAlert.esgotado}
+            naLista={naLista}
+            onAdicionar={handleAdicionarNecessidades}
+            onVerLista={handleVerLista}
+            onFechar={() => setZeroAlert(null)}
+          />
+        )}
+      </>
     );
   }
 

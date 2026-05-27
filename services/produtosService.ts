@@ -29,7 +29,7 @@ function docToProduto(d: DocumentSnapshot): Produto {
     fotoUrl: data.fotoUrl ?? undefined,
     conteudo: data.conteudo ?? undefined,
     mediaConsumoDias: data.mediaConsumoDias ?? 7,
-    ocultarNecessidades: data.ocultarNecessidades ?? false,
+    ocultarNecessidades: data.ocultarNecessidades ?? true,
   };
 }
 
@@ -77,6 +77,7 @@ export async function criarProduto(
     fotoUrl: dados.fotoUrl ?? null,
     conteudo: dados.conteudo ?? null,
     mediaConsumoDias: dados.mediaConsumoDias ?? 7,
+    ocultarNecessidades: true,
     criadoEm: Timestamp.now(),
   });
   return ref.id;

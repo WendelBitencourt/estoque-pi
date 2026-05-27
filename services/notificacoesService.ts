@@ -5,12 +5,14 @@ import Constants from 'expo-constants';
 export interface ConfigNotificacoes {
   resumoDiario: boolean;
   horaResumo: number; // 0-23
+  minutoResumo: number; // 0-59
   alertaEstoqueZerado: boolean;
 }
 
 const DEFAULTS: ConfigNotificacoes = {
   resumoDiario: false,
   horaResumo: 8,
+  minutoResumo: 0,
   alertaEstoqueZerado: true,
 };
 
@@ -55,7 +57,7 @@ export async function salvarConfig(config: ConfigNotificacoes): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(config));
 }
 
-export async function agendarResumoDiario(hora: number): Promise<void> {
+export async function agendarResumoDiario(hora: number, minuto: number = 0): Promise<void> {
   const Notifications = await getNotifications();
   if (!Notifications) return;
   await Notifications.cancelScheduledNotificationAsync(ID_RESUMO).catch(() => {});
@@ -69,7 +71,7 @@ export async function agendarResumoDiario(hora: number): Promise<void> {
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
       hour: hora,
-      minute: 0,
+      minute: minuto,
     },
   });
 }
@@ -80,17 +82,28 @@ export async function cancelarResumoDiario(): Promise<void> {
   await Notifications.cancelScheduledNotificationAsync(ID_RESUMO).catch(() => {});
 }
 
-export async function notificarEstoqueZerado(nomeProduto: string): Promise<void> {
+export async function notificarEstoqueZerado(
+  nomeProduto: string,
+  produtoEsgotado: boolean,
+  codigoLote?: string
+): Promise<void> {
   const Notifications = await getNotifications();
   if (!Notifications) return;
   const config = await carregarConfig();
   if (!config.alertaEstoqueZerado) return;
+  const content = produtoEsgotado
+    ? {
+        title: 'Produto esgotado',
+        body: `${nomeProduto} chegou a zero unidades no estoque. Adicione à lista de necessidades.`,
+      }
+    : {
+        title: 'Lote esgotado',
+        body: codigoLote
+          ? `O lote ${codigoLote} de ${nomeProduto} chegou a zero. Ainda há estoque em outros lotes.`
+          : `Um lote de ${nomeProduto} chegou a zero. Ainda há estoque em outros lotes.`,
+      };
   await Notifications.scheduleNotificationAsync({
-    content: {
-      title: 'Estoque zerado',
-      body: `${nomeProduto} chegou a zero unidades. Adicione à lista de necessidades.`,
-      sound: true,
-    },
+    content: { ...content, sound: true },
     trigger: null,
   });
 }

@@ -86,6 +86,13 @@ export function subscribeAllLotes(
   );
 }
 
+/** Soma a quantidade de todos os lotes de um produto — usado para detectar produto esgotado. */
+export async function getQuantidadeTotalProduto(produtoId: string): Promise<number> {
+  const q = query(collection(db, COL), where('produtoId', '==', produtoId));
+  const snap = await getDocs(q);
+  return snap.docs.reduce((s, d) => s + (d.data().quantidade ?? 0), 0);
+}
+
 export async function getLoteById(loteId: string): Promise<Lote | null> {
   const snap = await getDoc(doc(db, COL, loteId));
   if (!snap.exists()) return null;

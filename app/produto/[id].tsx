@@ -209,7 +209,7 @@ export default function ProdutoDetalheScreen() {
   useEffect(() => {
     getProdutoById(id).then((p) => {
       setProduto(p);
-      if (p) setOcultado(p.ocultarNecessidades ?? false);
+      if (p) setOcultado(p.ocultarNecessidades ?? true);
     }).catch(() => setProduto(null));
   }, [id]);
 

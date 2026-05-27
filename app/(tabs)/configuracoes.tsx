@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect } from 'react';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../theme';
 import { sairDaConta, redefinirSenha } from '../../services/authService';
@@ -26,6 +27,9 @@ import {
 // ── tipos locais ─────────────────────────────────────────────────────────────
 
 type ThemeMode = 'auto' | 'light' | 'dark';
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const formatarHora = (hora: number, minuto: number) => `${pad2(hora)}:${pad2(minuto)}`;
 
 // ── subcomponentes ────────────────────────────────────────────────────────────
 
@@ -109,51 +113,6 @@ function ItemNavegacao({
   );
 }
 
-function SeletorOpcoes<T extends string | number>({
-  label,
-  opcoes,
-  selecionado,
-  onSelecionar,
-}: {
-  label: string;
-  opcoes: { valor: T; label: string }[];
-  selecionado: T;
-  onSelecionar: (v: T) => void;
-}) {
-  const { colors } = useTheme();
-  return (
-    <View style={[styles.seletorWrap, { borderBottomColor: colors.divider }]}>
-      <Text style={[styles.itemLabel, { color: colors.textPrimary, marginBottom: 12 }]}>
-        {label}
-      </Text>
-      <View style={styles.seletorOpcoes}>
-        {opcoes.map((op) => {
-          const ativo = op.valor === selecionado;
-          return (
-            <TouchableOpacity
-              key={String(op.valor)}
-              style={[
-                styles.seletorChip,
-                {
-                  backgroundColor: ativo ? colors.primary : colors.surfaceSecondary,
-                  borderColor: ativo ? colors.primary : colors.border,
-                },
-              ]}
-              onPress={() => onSelecionar(op.valor)}
-              activeOpacity={0.75}
-              accessibilityLabel={`${label}: ${op.label}${ativo ? ', selecionado' : ''}`}
-            >
-              <Text style={[styles.seletorChipTexto, { color: ativo ? '#FFF' : colors.textSecondary }]}>
-                {op.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
 function Cartao({ children }: { children: React.ReactNode }) {
   const { colors } = useTheme();
   return (
@@ -220,12 +179,15 @@ export default function ConfiguracoesScreen() {
   const [alertaEstoqueZerado, setAlertaEstoqueZerado] = useState(true);
   const [notifDiarias, setNotifDiarias] = useState(false);
   const [horaResumo, setHoraResumo] = useState(8);
+  const [minutoResumo, setMinutoResumo] = useState(0);
+  const [mostrarPicker, setMostrarPicker] = useState(false);
 
   useEffect(() => {
     carregarConfig().then((c) => {
       setAlertaEstoqueZerado(c.alertaEstoqueZerado);
       setNotifDiarias(c.resumoDiario);
       setHoraResumo(c.horaResumo);
+      setMinutoResumo(c.minutoResumo);
     });
   }, []);
 
@@ -240,18 +202,25 @@ export default function ConfiguracoesScreen() {
         );
         return;
       }
-      await agendarResumoDiario(horaResumo);
+      await agendarResumoDiario(horaResumo, minutoResumo);
     } else {
       await cancelarResumoDiario();
     }
     setNotifDiarias(ativar);
-    await salvarConfig({ resumoDiario: ativar, horaResumo, alertaEstoqueZerado });
+    await salvarConfig({ resumoDiario: ativar, horaResumo, minutoResumo, alertaEstoqueZerado });
   }
 
-  async function handleHoraResumo(hora: number) {
+  async function handleHorario(hora: number, minuto: number) {
     setHoraResumo(hora);
-    if (notifDiarias) await agendarResumoDiario(hora);
-    await salvarConfig({ resumoDiario: notifDiarias, horaResumo: hora, alertaEstoqueZerado });
+    setMinutoResumo(minuto);
+    if (notifDiarias) await agendarResumoDiario(hora, minuto);
+    await salvarConfig({ resumoDiario: notifDiarias, horaResumo: hora, minutoResumo: minuto, alertaEstoqueZerado });
+  }
+
+  function onPickerChange(event: DateTimePickerEvent, date?: Date) {
+    if (Platform.OS !== 'ios') setMostrarPicker(false);
+    if (event.type === 'dismissed' || !date) return;
+    handleHorario(date.getHours(), date.getMinutes());
   }
 
   async function handleAlertaEstoqueZerado(ativar: boolean) {
@@ -267,7 +236,7 @@ export default function ConfiguracoesScreen() {
       }
     }
     setAlertaEstoqueZerado(ativar);
-    await salvarConfig({ resumoDiario: notifDiarias, horaResumo, alertaEstoqueZerado: ativar });
+    await salvarConfig({ resumoDiario: notifDiarias, horaResumo, minutoResumo, alertaEstoqueZerado: ativar });
   }
 
   async function handleAlterarSenha() {
@@ -334,19 +303,54 @@ export default function ConfiguracoesScreen() {
             valor={notifDiarias}
             onChange={handleNotifDiarias}
           />
-          {notifDiarias && (
-            <SeletorOpcoes
+          {notifDiarias && Platform.OS === 'web' && (
+            <View style={[styles.seletorWrap, { borderBottomColor: colors.divider }]}>
+              <Text style={[styles.itemLabel, { color: colors.textPrimary, marginBottom: 12 }]}>
+                Horário do resumo diário
+              </Text>
+              <input
+                type="time"
+                value={formatarHora(horaResumo, minutoResumo)}
+                onChange={(e) => {
+                  const [h, m] = e.target.value.split(':').map(Number);
+                  if (!Number.isNaN(h) && !Number.isNaN(m)) handleHorario(h, m);
+                }}
+                style={{
+                  fontSize: 18,
+                  padding: 10,
+                  borderRadius: 12,
+                  border: `1px solid ${colors.border}`,
+                  background: colors.surfaceSecondary,
+                  color: colors.textPrimary,
+                }}
+              />
+            </View>
+          )}
+          {notifDiarias && Platform.OS !== 'web' && (
+            <ItemNavegacao
               label="Horário do resumo diário"
-              opcoes={[
-                { valor: 6, label: '6h' },
-                { valor: 7, label: '7h' },
-                { valor: 8, label: '8h' },
-                { valor: 9, label: '9h' },
-                { valor: 10, label: '10h' },
-              ]}
-              selecionado={horaResumo}
-              onSelecionar={handleHoraResumo}
+              descricao="Toque para escolher a hora"
+              valorAtual={formatarHora(horaResumo, minutoResumo)}
+              onPress={() => setMostrarPicker(true)}
             />
+          )}
+          {notifDiarias && mostrarPicker && Platform.OS !== 'web' && (
+            <DateTimePicker
+              value={new Date(2000, 0, 1, horaResumo, minutoResumo)}
+              mode="time"
+              is24Hour
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={onPickerChange}
+            />
+          )}
+          {notifDiarias && mostrarPicker && Platform.OS === 'ios' && (
+            <TouchableOpacity
+              style={[styles.seletorWrap, { borderBottomColor: colors.divider, alignItems: 'flex-end' }]}
+              onPress={() => setMostrarPicker(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.itemLabel, { color: colors.primary }]}>Pronto</Text>
+            </TouchableOpacity>
           )}
         </Cartao>
 
@@ -549,16 +553,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
   },
-  seletorOpcoes: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  seletorChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  seletorChipTexto: { fontSize: 15, fontWeight: '600' },
 
   temaOpcoes: { flexDirection: 'row', gap: 10 },
   temaChip: {
