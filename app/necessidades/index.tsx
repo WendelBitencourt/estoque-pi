@@ -1,6 +1,7 @@
 import {
   View,
   Text,
+  Image,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
@@ -29,6 +30,7 @@ interface ItemNecessidade {
   produtoId: string;
   nome: string;
   emoji: string;
+  fotoUrl?: string;
   total: number;
   risco: NivelRisco;
   diasPiorLote: number | null;
@@ -81,9 +83,10 @@ function buildSugestaoTexto(resultado: ResultadoAgrupamento, agora: Date): strin
 function buildLista(
   produtos: Produto[],
   lotes: Lote[]
-): { urgentes: ItemNecessidade[]; atencao: ItemNecessidade[] } {
+): { urgentes: ItemNecessidade[]; atencao: ItemNecessidade[]; outros: ItemNecessidade[] } {
   const urgentes: ItemNecessidade[] = [];
   const atencaoList: ItemNecessidade[] = [];
+  const outros: ItemNecessidade[] = [];
 
   for (const p of produtos.filter((p) => !p.ocultarNecessidades)) {
     const ls = lotes.filter((l) => l.produtoId === p.id);
@@ -107,6 +110,7 @@ function buildLista(
       produtoId: p.id,
       nome: p.nome,
       emoji: p.emoji,
+      fotoUrl: p.fotoUrl,
       total,
       risco,
       diasPiorLote: dias,
@@ -115,14 +119,16 @@ function buildLista(
 
     if (total === 0 || risco === 'risco_alto') urgentes.push(item);
     else if (risco === 'atencao') atencaoList.push(item);
+    else outros.push(item);
   }
 
-  return { urgentes, atencao: atencaoList };
+  return { urgentes, atencao: atencaoList, outros };
 }
 
 function gerarTexto(
   urgentes: ItemNecessidade[],
   atencao: ItemNecessidade[],
+  outros: ItemNecessidade[],
   sugestao: string | null
 ): string {
   const hoje = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
@@ -149,7 +155,15 @@ function gerarTexto(
     linhas.push('');
   }
 
-  if (urgentes.length === 0 && atencao.length === 0) {
+  if (outros.length > 0) {
+    linhas.push('📋 *Também na lista:*');
+    for (const i of outros) {
+      linhas.push(`  ${i.emoji} ${i.nome}`);
+    }
+    linhas.push('');
+  }
+
+  if (urgentes.length === 0 && atencao.length === 0 && outros.length === 0) {
     linhas.push('✅ O estoque está bem no momento. Obrigada pelas doações anteriores!');
     linhas.push('');
   }
@@ -183,7 +197,11 @@ function NecessidadeItem({ item }: { item: ItemNecessidade }) {
         accessibilityLabel={`${item.nome}, ${item.motivo}`}
       >
         <View style={[styles.itemEmojiBg, { backgroundColor: colors.surfaceSecondary }]}>
-          <Text style={styles.itemEmoji}>{item.emoji}</Text>
+          {item.fotoUrl ? (
+            <Image source={{ uri: item.fotoUrl }} style={styles.itemFoto} />
+          ) : (
+            <Text style={styles.itemEmoji}>{item.emoji}</Text>
+          )}
         </View>
         <View style={styles.itemInfo}>
           <Text style={[styles.itemNome, { color: colors.textPrimary }]} numberOfLines={1}>
@@ -192,14 +210,23 @@ function NecessidadeItem({ item }: { item: ItemNecessidade }) {
           <Text style={[styles.itemEstoque, { color: colors.textSecondary }]}>
             {item.total === 0 ? '⚠️ Sem estoque' : `${item.total} em estoque`}
           </Text>
-          <Text
-            style={[
-              styles.itemMotivo,
-              { color: item.risco === 'risco_alto' ? colors.riscoAltoDark : colors.riscoAtencaoDark },
-            ]}
-          >
-            {item.motivo}
-          </Text>
+          {item.motivo !== '' && (
+            <Text
+              style={[
+                styles.itemMotivo,
+                {
+                  color:
+                    item.risco === 'risco_alto'
+                      ? colors.riscoAltoDark
+                      : item.risco === 'atencao'
+                        ? colors.riscoAtencaoDark
+                        : colors.textSecondary,
+                },
+              ]}
+            >
+              {item.motivo}
+            </Text>
+          )}
         </View>
         {item.total > 0 && (
           <RiskBadge risco={item.risco} diasParaVencer={item.diasPiorLote ?? undefined} />
@@ -257,11 +284,11 @@ export default function NecessidadesScreen() {
     }, [])
   );
 
-  const { urgentes, atencao } = useMemo(() => buildLista(produtos, lotes), [produtos, lotes]);
-  const total = urgentes.length + atencao.length;
+  const { urgentes, atencao, outros } = useMemo(() => buildLista(produtos, lotes), [produtos, lotes]);
+  const total = urgentes.length + atencao.length + outros.length;
 
   async function handleWhatsApp() {
-    const texto = gerarTexto(urgentes, atencao, sugestao);
+    const texto = gerarTexto(urgentes, atencao, outros, sugestao);
     const url = `whatsapp://send?text=${encodeURIComponent(texto)}`;
     const suportado = await Linking.canOpenURL(url).catch(() => false);
     if (suportado) {
@@ -285,8 +312,8 @@ export default function NecessidadesScreen() {
             <Text style={[styles.titulo, { color: colors.textPrimary }]}>Lista de Necessidades</Text>
             <Text style={[styles.subtitulo, { color: colors.textSecondary }]}>
               {total === 0
-                ? 'Tudo em ordem no estoque!'
-                : `${total} ${total === 1 ? 'produto precisa' : 'produtos precisam'} de doação`}
+                ? 'Nenhum produto na lista'
+                : `${total} ${total === 1 ? 'produto' : 'produtos'} na lista`}
             </Text>
           </View>
         </View>
@@ -326,10 +353,10 @@ export default function NecessidadesScreen() {
           <SkeletonLista n={3} />
         ) : total === 0 ? (
           <View style={[styles.vazioCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text style={styles.vazioEmoji}>🎉</Text>
-            <Text style={[styles.vazioTitulo, { color: colors.textPrimary }]}>Estoque em dia!</Text>
+            <Text style={styles.vazioEmoji}>📝</Text>
+            <Text style={[styles.vazioTitulo, { color: colors.textPrimary }]}>Lista vazia</Text>
             <Text style={[styles.vazioSub, { color: colors.textSecondary }]}>
-              Nenhum produto precisa de doação urgente no momento.
+              Abra um produto e toque em "Mostrar na lista" para adicioná-lo aqui.
             </Text>
           </View>
         ) : (
@@ -370,6 +397,26 @@ export default function NecessidadesScreen() {
                 </Text>
                 <View style={styles.lista}>
                   {atencao.map((item) => <NecessidadeItem key={item.produtoId} item={item} />)}
+                </View>
+              </View>
+            )}
+
+            {outros.length > 0 && (
+              <View style={styles.secao}>
+                <View style={styles.secaoHeaderRow}>
+                  <View style={[styles.secaoDot, { backgroundColor: colors.riscoSeguro }]} />
+                  <Text style={[styles.secaoTitulo, { color: colors.textSecondary }]}>OUTROS</Text>
+                  <View style={[styles.secaoCount, { backgroundColor: colors.riscoSeguroLight }]}>
+                    <Text style={[styles.secaoCountTexto, { color: colors.riscoSeguroDark }]}>
+                      {outros.length}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={[styles.secaoDesc, { color: colors.textSecondary }]}>
+                  Na lista, mas ainda com estoque
+                </Text>
+                <View style={styles.lista}>
+                  {outros.map((item) => <NecessidadeItem key={item.produtoId} item={item} />)}
                 </View>
               </View>
             )}
@@ -436,8 +483,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 14,
     padding: 16,
   },
-  itemEmojiBg: { width: 50, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  itemEmojiBg: { width: 50, height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' },
   itemEmoji:   { fontSize: 26 },
+  itemFoto:    { width: 50, height: 50, borderRadius: 14 },
   itemInfo:    { flex: 1, gap: 2 },
   itemNome:    { fontSize: 17, fontWeight: '700' },
   itemEstoque: { fontSize: 13 },
