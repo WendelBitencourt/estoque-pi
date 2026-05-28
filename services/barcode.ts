@@ -179,10 +179,20 @@ async function consultarOpenFoodFacts(ean: string, categorias: CategoriaItem[]):
  *
  * Nunca lança exceção. Sempre retorna um StatusBusca.
  */
+// [demo] EANs que sempre retornam "não encontrado" — usado pra mostrar o fluxo
+// de cadastro manual na pré-apresentação. Remover após a demo.
+const EANS_FORCAR_NAO_ENCONTRADO = new Set<string>([
+  '7891079000229', // Nissin Lámen Galinha Caipira
+]);
+
 export async function buscarPorEan(
   ean: string,
   categorias: CategoriaItem[] = CATEGORIAS_PADRAO
 ): Promise<StatusBusca> {
+  if (EANS_FORCAR_NAO_ENCONTRADO.has(ean)) {
+    return { status: 'nao_encontrado' };
+  }
+
   // 1. Cache do Firestore
   try {
     const cached = await buscarNoCacheFirestore(ean);
