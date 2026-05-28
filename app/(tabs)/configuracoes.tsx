@@ -7,10 +7,10 @@ import {
   StyleSheet,
   Platform,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect } from 'react';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../../theme';
 import { sairDaConta, redefinirSenha } from '../../services/authService';
@@ -20,16 +20,11 @@ import {
   carregarConfig,
   salvarConfig,
   pedirPermissao,
-  agendarResumoDiario,
-  cancelarResumoDiario,
 } from '../../services/notificacoesService';
 
 // ── tipos locais ─────────────────────────────────────────────────────────────
 
 type ThemeMode = 'auto' | 'light' | 'dark';
-
-const pad2 = (n: number) => String(n).padStart(2, '0');
-const formatarHora = (hora: number, minuto: number) => `${pad2(hora)}:${pad2(minuto)}`;
 
 // ── subcomponentes ────────────────────────────────────────────────────────────
 
@@ -131,7 +126,24 @@ export default function ConfiguracoesScreen() {
   const [seedando, setSeedando] = useState(false);
 
   const isEmailUser = user?.providerData.some((p) => p.providerId === 'password') ?? false;
+  const isGoogleUser = user?.providerData.some((p) => p.providerId === 'google.com') ?? false;
+  const isAnonimo = user?.isAnonymous ?? false;
   const isDev = user?.uid === 'YqtgWYsO56R78dAdTcFzyIzSxgr1';
+
+  const nomeExibido = (() => {
+    if (isAnonimo) return 'Visitante';
+    if (user?.displayName) return user.displayName;
+    if (user?.email) return user.email.split('@')[0];
+    return 'Voluntária';
+  })();
+
+  const subtextoPerfil = (() => {
+    if (isAnonimo) return 'Modo de demonstração';
+    if (user?.email) return user.email;
+    return 'Casa da Criança · Itapira/SP';
+  })();
+
+  const inicial = nomeExibido.trim().charAt(0).toUpperCase() || '👤';
 
   async function handleSeedDados() {
     setSeedando(true);
@@ -177,51 +189,12 @@ export default function ConfiguracoesScreen() {
 
   // Notificações
   const [alertaEstoqueZerado, setAlertaEstoqueZerado] = useState(true);
-  const [notifDiarias, setNotifDiarias] = useState(false);
-  const [horaResumo, setHoraResumo] = useState(8);
-  const [minutoResumo, setMinutoResumo] = useState(0);
-  const [mostrarPicker, setMostrarPicker] = useState(false);
 
   useEffect(() => {
     carregarConfig().then((c) => {
       setAlertaEstoqueZerado(c.alertaEstoqueZerado);
-      setNotifDiarias(c.resumoDiario);
-      setHoraResumo(c.horaResumo);
-      setMinutoResumo(c.minutoResumo);
     });
   }, []);
-
-  async function handleNotifDiarias(ativar: boolean) {
-    if (ativar) {
-      const ok = await pedirPermissao();
-      if (!ok) {
-        Alert.alert(
-          'Permissão negada',
-          'Para receber notificações, acesse as Configurações do seu celular e habilite as notificações para este app.',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-      await agendarResumoDiario(horaResumo, minutoResumo);
-    } else {
-      await cancelarResumoDiario();
-    }
-    setNotifDiarias(ativar);
-    await salvarConfig({ resumoDiario: ativar, horaResumo, minutoResumo, alertaEstoqueZerado });
-  }
-
-  async function handleHorario(hora: number, minuto: number) {
-    setHoraResumo(hora);
-    setMinutoResumo(minuto);
-    if (notifDiarias) await agendarResumoDiario(hora, minuto);
-    await salvarConfig({ resumoDiario: notifDiarias, horaResumo: hora, minutoResumo: minuto, alertaEstoqueZerado });
-  }
-
-  function onPickerChange(event: DateTimePickerEvent, date?: Date) {
-    if (Platform.OS !== 'ios') setMostrarPicker(false);
-    if (event.type === 'dismissed' || !date) return;
-    handleHorario(date.getHours(), date.getMinutes());
-  }
 
   async function handleAlertaEstoqueZerado(ativar: boolean) {
     if (ativar) {
@@ -236,7 +209,7 @@ export default function ConfiguracoesScreen() {
       }
     }
     setAlertaEstoqueZerado(ativar);
-    await salvarConfig({ resumoDiario: notifDiarias, horaResumo, minutoResumo, alertaEstoqueZerado: ativar });
+    await salvarConfig({ alertaEstoqueZerado: ativar });
   }
 
   async function handleAlterarSenha() {
@@ -274,18 +247,26 @@ export default function ConfiguracoesScreen() {
         {/* Card de perfil */}
         <View style={[styles.perfilCard, { backgroundColor: colors.primary }]}>
           <View style={styles.perfilAvatar}>
-            <Text style={styles.perfilAvatarTexto}>👩</Text>
+            {isGoogleUser && user?.photoURL ? (
+              <Image source={{ uri: user.photoURL }} style={styles.perfilAvatarImg} />
+            ) : isAnonimo ? (
+              <Text style={styles.perfilAvatarTexto}>👤</Text>
+            ) : (
+              <Text style={styles.perfilAvatarInicial}>{inicial}</Text>
+            )}
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.perfilNome}>Voluntária</Text>
-            <Text style={styles.perfilCargo}>Casa da Criança · Itapira/SP</Text>
+            <Text style={styles.perfilNome} numberOfLines={1}>{nomeExibido}</Text>
+            <Text style={styles.perfilCargo} numberOfLines={1}>{subtextoPerfil}</Text>
           </View>
-          <TouchableOpacity
-            style={[styles.perfilEditarBtn, { backgroundColor: 'rgba(255,255,255,0.2)' }]}
-            onPress={() => avisoEmBreve('Editar perfil')}
-          >
-            <Text style={styles.perfilEditarTexto}>Editar</Text>
-          </TouchableOpacity>
+          {!isAnonimo && (
+            <TouchableOpacity
+              style={[styles.perfilEditarBtn, { backgroundColor: 'rgba(255,255,255,0.2)' }]}
+              onPress={() => avisoEmBreve('Editar perfil')}
+            >
+              <Text style={styles.perfilEditarTexto}>Editar</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* ── Notificações ── */}
@@ -297,61 +278,6 @@ export default function ConfiguracoesScreen() {
             valor={alertaEstoqueZerado}
             onChange={handleAlertaEstoqueZerado}
           />
-          <ItemToggle
-            label="Resumo diário"
-            descricao="Notificação toda manhã com o resumo do estoque"
-            valor={notifDiarias}
-            onChange={handleNotifDiarias}
-          />
-          {notifDiarias && Platform.OS === 'web' && (
-            <View style={[styles.seletorWrap, { borderBottomColor: colors.divider }]}>
-              <Text style={[styles.itemLabel, { color: colors.textPrimary, marginBottom: 12 }]}>
-                Horário do resumo diário
-              </Text>
-              <input
-                type="time"
-                value={formatarHora(horaResumo, minutoResumo)}
-                onChange={(e) => {
-                  const [h, m] = e.target.value.split(':').map(Number);
-                  if (!Number.isNaN(h) && !Number.isNaN(m)) handleHorario(h, m);
-                }}
-                style={{
-                  fontSize: 18,
-                  padding: 10,
-                  borderRadius: 12,
-                  border: `1px solid ${colors.border}`,
-                  background: colors.surfaceSecondary,
-                  color: colors.textPrimary,
-                }}
-              />
-            </View>
-          )}
-          {notifDiarias && Platform.OS !== 'web' && (
-            <ItemNavegacao
-              label="Horário do resumo diário"
-              descricao="Toque para escolher a hora"
-              valorAtual={formatarHora(horaResumo, minutoResumo)}
-              onPress={() => setMostrarPicker(true)}
-            />
-          )}
-          {notifDiarias && mostrarPicker && Platform.OS !== 'web' && (
-            <DateTimePicker
-              value={new Date(2000, 0, 1, horaResumo, minutoResumo)}
-              mode="time"
-              is24Hour
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={onPickerChange}
-            />
-          )}
-          {notifDiarias && mostrarPicker && Platform.OS === 'ios' && (
-            <TouchableOpacity
-              style={[styles.seletorWrap, { borderBottomColor: colors.divider, alignItems: 'flex-end' }]}
-              onPress={() => setMostrarPicker(false)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.itemLabel, { color: colors.primary }]}>Pronto</Text>
-            </TouchableOpacity>
-          )}
         </Cartao>
 
         {/* ── Estoque ── */}
@@ -499,8 +425,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   perfilAvatarTexto: { fontSize: 30 },
+  perfilAvatarInicial: { fontSize: 24, fontWeight: '800', color: '#FFF' },
+  perfilAvatarImg: { width: '100%', height: '100%' },
   perfilNome: { fontSize: 19, fontWeight: '800', color: '#FFF' },
   perfilCargo: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
   perfilEditarBtn: {

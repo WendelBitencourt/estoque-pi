@@ -3,21 +3,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
 export interface ConfigNotificacoes {
-  resumoDiario: boolean;
-  horaResumo: number; // 0-23
-  minutoResumo: number; // 0-59
   alertaEstoqueZerado: boolean;
 }
 
 const DEFAULTS: ConfigNotificacoes = {
-  resumoDiario: false,
-  horaResumo: 8,
-  minutoResumo: 0,
   alertaEstoqueZerado: true,
 };
 
 const STORAGE_KEY = '@notif_config_v1';
-const ID_RESUMO = 'resumo-diario';
 
 // Notificações não funcionam no Expo Go — retorna stubs silenciosos
 const isExpoGo =
@@ -55,31 +48,6 @@ export async function carregarConfig(): Promise<ConfigNotificacoes> {
 
 export async function salvarConfig(config: ConfigNotificacoes): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-}
-
-export async function agendarResumoDiario(hora: number, minuto: number = 0): Promise<void> {
-  const Notifications = await getNotifications();
-  if (!Notifications) return;
-  await Notifications.cancelScheduledNotificationAsync(ID_RESUMO).catch(() => {});
-  await Notifications.scheduleNotificationAsync({
-    identifier: ID_RESUMO,
-    content: {
-      title: 'Bom dia! Resumo do Estoque',
-      body: 'Toque para ver o estado atual do estoque da Casa da Criança.',
-      sound: true,
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour: hora,
-      minute: minuto,
-    },
-  });
-}
-
-export async function cancelarResumoDiario(): Promise<void> {
-  const Notifications = await getNotifications();
-  if (!Notifications) return;
-  await Notifications.cancelScheduledNotificationAsync(ID_RESUMO).catch(() => {});
 }
 
 export async function notificarEstoqueZerado(
