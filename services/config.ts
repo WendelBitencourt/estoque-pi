@@ -12,7 +12,9 @@
  * o Open Food Facts como única fonte externa.
  */
 
-export const COSMOS_TOKEN: string =
-  (typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_COSMOS_TOKEN) || '';
+// Acesso direto a process.env.EXPO_PUBLIC_* é obrigatório — o Metro/Babel do Expo
+// só faz a substituição estática para o bundle de produção neste pattern exato.
+// Optional chaining ou typeof guards quebram o inlining e o token chega vazio no APK.
+export const COSMOS_TOKEN: string = process.env.EXPO_PUBLIC_COSMOS_TOKEN ?? '';
 
 export const ML_API_URL = 'https://minduim-casadacrianca-validade.hf.space';
