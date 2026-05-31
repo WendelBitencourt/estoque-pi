@@ -33,8 +33,7 @@ Um app pensado para uma voluntária sem conhecimento técnico — toda a intelig
 12. [Funcionalidades por tela](#-funcionalidades-por-tela)
 13. [Compatibilidade e modo offline](#-compatibilidade-e-modo-offline)
 14. [Estrutura do projeto](#-estrutura-do-projeto)
-15. [Equipe](#-equipe)
-16. [Licença](#-licença)
+15. [Licença](#-licença)
 
 ---
 
@@ -598,19 +597,6 @@ estoque-pi/
 │   └── space/app.py      # API hospedada no Hugging Face
 └── assets/               # Ícones, imagens e diagrama de arquitetura
 ```
-
----
-
-## 👥 Equipe
-
-Projeto desenvolvido pela equipe do Projeto Integrador:
-
-| Nome | Função |
-|---|---|
-| Wendel Adriano Bitencourt | Desenvolvimento |
-| nome_integrante | — |
-| nome_integrante | — |
-| nome_integrante | — |
 
 ---
 
