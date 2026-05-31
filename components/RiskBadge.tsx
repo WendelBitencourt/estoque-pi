@@ -50,7 +50,11 @@ function RiskBadgeAnimated({ risco, diasParaVencer }: Props) {
 
   const config: Record<NivelRisco, { label: string; bg: string; text: string }> = {
     risco_alto: {
-      label: diasParaVencer !== undefined ? `Vence em ${diasParaVencer}d` : 'Risco alto',
+      label: diasParaVencer === undefined
+        ? 'Risco alto'
+        : diasParaVencer <= 0
+        ? 'Vencido'
+        : `Vence em ${diasParaVencer}d`,
       bg: colors.riscoAltoLight, text: colors.riscoAltoDark,
     },
     atencao: {
@@ -84,7 +88,11 @@ function RiskBadgeFallback({ risco, diasParaVencer }: Props) {
 
   const config: Record<NivelRisco, { label: string; bg: string; text: string }> = {
     risco_alto: {
-      label: diasParaVencer !== undefined ? `Vence em ${diasParaVencer}d` : 'Risco alto',
+      label: diasParaVencer === undefined
+        ? 'Risco alto'
+        : diasParaVencer <= 0
+        ? 'Vencido'
+        : `Vence em ${diasParaVencer}d`,
       bg: colors.riscoAltoLight, text: colors.riscoAltoDark,
     },
     atencao: {

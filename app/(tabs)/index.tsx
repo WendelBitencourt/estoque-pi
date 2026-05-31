@@ -261,7 +261,11 @@ export default function InicioScreen() {
                     </Text>
                     <Text style={[styles.alertaDescricao, { color: colors.riscoAltoDark }]}>
                       {unidadesEmRisco} {unidadesEmRisco === 1 ? 'unidade' : 'unidades'} em risco de vencer
-                      {diasMaisUrgente !== null ? ` — mais urgente em ${diasMaisUrgente}d` : ''}
+                      {diasMaisUrgente === null
+                        ? ''
+                        : diasMaisUrgente <= 0
+                        ? ' — há item vencido'
+                        : ` — mais urgente em ${diasMaisUrgente}d`}
                     </Text>
                   </View>
                   <Text style={[styles.alertaSeta, { color: colors.riscoAltoDark }]}>›</Text>

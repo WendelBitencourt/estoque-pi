@@ -125,33 +125,6 @@ export default function CadastroScreen() {
     ]);
   }
 
-  async function handleTirarFoto() {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permissão necessária', 'Precisamos acessar a galeria para escolher uma foto.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
-    if (result.canceled) return;
-    const uri = result.assets[0].uri;
-    setEnviandoFoto(true);
-    try {
-      const url = await uploadFoto(uri);
-      setFotoUrl(url);
-      setFotoComErro(false);
-      setFonteDados(null);
-    } catch (e) {
-      Alert.alert('Foto não enviada', mensagemErro(e, 'Não foi possível enviar a foto. Verifique a conexão e tente novamente.'));
-    } finally {
-      setEnviandoFoto(false);
-    }
-  }
-
   async function handleAbrirCamera() {
     setPromptNaoEncontrado(false);
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -356,29 +329,6 @@ export default function CadastroScreen() {
               </View>
             </View>
           )}
-
-          {/* Botão adicionar foto manual */}
-          <TouchableOpacity
-            style={[s.fotoBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-            onPress={handleTirarFoto}
-            activeOpacity={0.8}
-            disabled={enviandoFoto}
-          >
-            <Text style={s.escanearEmoji}>🖼️</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={[s.escanearTitulo, { color: colors.textPrimary }]}>
-                {fotoUrl ? 'Trocar foto' : 'Adicionar foto'}
-              </Text>
-              <Text style={[s.escanearSub, { color: colors.textSecondary }]}>
-                Escolher da galeria
-              </Text>
-            </View>
-            {enviandoFoto ? (
-              <ActivityIndicator color={colors.primary} />
-            ) : (
-              <Text style={[s.escanearSeta, { color: colors.textSecondary }]}>›</Text>
-            )}
-          </TouchableOpacity>
 
           <View style={[s.separador, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
             <View style={[s.sepLinha, { backgroundColor: colors.border }]} />

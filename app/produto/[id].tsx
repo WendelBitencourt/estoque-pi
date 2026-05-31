@@ -191,7 +191,7 @@ function LoteCard({ lote, mediaConsumoDias }: { lote: Lote; mediaConsumoDias: nu
         <Text style={[styles.mlTexto, { color: corML }]}>
           {lote.risco === null
             ? '🧠 Calculando risco — aguardando conexão com a internet…'
-            : `🧠 ${dias}d restantes · consumo médio ${mediaConsumoDias}d → ${CLASSE_LABEL[lote.risco]}`}
+            : `🧠 ${dias <= 0 ? 'Vencido' : `${dias}d restantes`} · consumo médio ${mediaConsumoDias}d → ${CLASSE_LABEL[lote.risco]}`}
         </Text>
       </View>
     </View>
