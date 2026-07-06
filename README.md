@@ -4,7 +4,6 @@
 
 **Aplicativo mobile de gerenciamento de estoque de doações para a ONG Casa da Criança (Itapira/SP)**
 
-Um app pensado para uma voluntária sem conhecimento técnico — toda a inteligência fica invisível na interface.
 
 ![React Native](https://img.shields.io/badge/React_Native-0.81.5-61DAFB?logo=react&logoColor=white)
 ![Expo](https://img.shields.io/badge/Expo_SDK-54-000020?logo=expo&logoColor=white)
