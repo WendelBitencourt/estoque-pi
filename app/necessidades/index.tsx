@@ -22,7 +22,7 @@ import { Produto, Lote, NivelRisco } from '../../services/tipos';
 import { ResultadoAgrupamento } from '../../services/mlService';
 import { subscribeToProdutos, toggleOcultarNecessidades } from '../../services/produtosService';
 import { subscribeAllLotes } from '../../services/lotesService';
-import { getRiscoProduto, diasParaVencer } from '../../services/risco';
+import { getRiscoProduto, diasParaVencer, aplicarRiscoMulti } from '../../services/risco';
 import { getEntradasMensais } from '../../services/movimentacoesService';
 import { agruparDoacoes } from '../../services/mlService';
 
@@ -88,8 +88,11 @@ function buildLista(
   const atencaoList: ItemNecessidade[] = [];
   const outros: ItemNecessidade[] = [];
 
+  // Risco ao vivo (média por produto) no lugar do campo congelado do Firestore.
+  const lotesComRisco = aplicarRiscoMulti(lotes, produtos);
+
   for (const p of produtos.filter((p) => !p.ocultarNecessidades)) {
-    const ls = lotes.filter((l) => l.produtoId === p.id);
+    const ls = lotesComRisco.filter((l) => l.produtoId === p.id);
     const risco = ls.length > 0 ? getRiscoProduto(ls) : ('seguro' as NivelRisco);
     const total = ls.reduce((s, l) => s + l.quantidade, 0);
     const pior = [...ls].sort(

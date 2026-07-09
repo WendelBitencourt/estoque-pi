@@ -18,7 +18,7 @@ import { FadeDown, FadeIn } from '../../components/AnimEntrance';
 import { Produto, Lote, NivelRisco } from '../../services/tipos';
 import { subscribeToProdutos } from '../../services/produtosService';
 import { subscribeAllLotes } from '../../services/lotesService';
-import { getRiscoProduto, diasParaVencer } from '../../services/risco';
+import { getRiscoProduto, diasParaVencer, aplicarRiscoMulti } from '../../services/risco';
 
 const RISCO_ORDEM: Record<string, number> = { risco_alto: 0, atencao: 1, seguro: 2 };
 function riscoOrdem(r: NivelRisco | null) { return r === null ? 1 : RISCO_ORDEM[r] ?? 2; }
@@ -191,13 +191,17 @@ export default function InicioScreen() {
 
   const totalLotes = lotes.length;
 
-  const dist = useMemo(() => ({
-    alto:    lotes.filter((l) => l.risco === 'risco_alto').length,
-    atencao: lotes.filter((l) => l.risco === 'atencao').length,
-    seguro:  lotes.filter((l) => l.risco === 'seguro').length,
-  }), [lotes]);
+  // Risco recalculado ao vivo para todos os lotes (média resolvida por produto),
+  // substituindo o campo congelado do Firestore.
+  const lotesComRisco = useMemo(() => aplicarRiscoMulti(lotes, produtos), [lotes, produtos]);
 
-  const lotesAlto       = lotes.filter((l) => l.risco === 'risco_alto');
+  const dist = useMemo(() => ({
+    alto:    lotesComRisco.filter((l) => l.risco === 'risco_alto').length,
+    atencao: lotesComRisco.filter((l) => l.risco === 'atencao').length,
+    seguro:  lotesComRisco.filter((l) => l.risco === 'seguro').length,
+  }), [lotesComRisco]);
+
+  const lotesAlto       = lotesComRisco.filter((l) => l.risco === 'risco_alto');
   const unidadesEmRisco = lotesAlto.reduce((s, l) => s + l.quantidade, 0);
   const diasMaisUrgente = lotesAlto.length > 0
     ? Math.min(...lotesAlto.map((l) => diasParaVencer(l.validade)))
@@ -206,7 +210,7 @@ export default function InicioScreen() {
   const produtosAtencao = useMemo<ProdutoAtencaoCard[]>(() =>
     produtos
       .map((p) => {
-        const ls = lotes.filter((l) => l.produtoId === p.id);
+        const ls = lotesComRisco.filter((l) => l.produtoId === p.id);
         if (ls.length === 0) return null;
         const riscoGeral = getRiscoProduto(ls);
         if (riscoGeral === 'seguro') return null;
@@ -223,7 +227,7 @@ export default function InicioScreen() {
         } as ProdutoAtencaoCard;
       })
       .filter((x): x is ProdutoAtencaoCard => x !== null),
-  [produtos, lotes]);
+  [produtos, lotesComRisco]);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={[]}>

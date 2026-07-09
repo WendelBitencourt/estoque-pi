@@ -1,0 +1,215 @@
+{
+  "features": [
+    "dias_ate_vencer",
+    "media_consumo_dias",
+    "quantidade"
+  ],
+  "classes": [
+    "consumo_imediato",
+    "risco_vencimento",
+    "seguro"
+  ],
+  "nos": [
+    {
+      "feature": 0,
+      "limite": 13.5,
+      "esq": 1,
+      "dir": 22
+    },
+    {
+      "feature": 1,
+      "limite": 14.5,
+      "esq": 2,
+      "dir": 17
+    },
+    {
+      "feature": 0,
+      "limite": 5.5,
+      "esq": 3,
+      "dir": 10
+    },
+    {
+      "feature": 2,
+      "limite": 3.0,
+      "esq": 4,
+      "dir": 7
+    },
+    {
+      "feature": 0,
+      "limite": 3.0,
+      "esq": 5,
+      "dir": 6
+    },
+    {
+      "classe": "consumo_imediato"
+    },
+    {
+      "classe": "risco_vencimento"
+    },
+    {
+      "feature": 2,
+      "limite": 53.5,
+      "esq": 8,
+      "dir": 9
+    },
+    {
+      "classe": "consumo_imediato"
+    },
+    {
+      "classe": "consumo_imediato"
+    },
+    {
+      "feature": 1,
+      "limite": 6.5,
+      "esq": 11,
+      "dir": 14
+    },
+    {
+      "feature": 0,
+      "limite": 6.5,
+      "esq": 12,
+      "dir": 13
+    },
+    {
+      "classe": "risco_vencimento"
+    },
+    {
+      "classe": "seguro"
+    },
+    {
+      "feature": 2,
+      "limite": 23.0,
+      "esq": 15,
+      "dir": 16
+    },
+    {
+      "classe": "risco_vencimento"
+    },
+    {
+      "classe": "risco_vencimento"
+    },
+    {
+      "feature": 0,
+      "limite": 11.5,
+      "esq": 18,
+      "dir": 19
+    },
+    {
+      "classe": "consumo_imediato"
+    },
+    {
+      "feature": 1,
+      "limite": 35.0,
+      "esq": 20,
+      "dir": 21
+    },
+    {
+      "classe": "risco_vencimento"
+    },
+    {
+      "classe": "consumo_imediato"
+    },
+    {
+      "feature": 1,
+      "limite": 22.0,
+      "esq": 23,
+      "dir": 32
+    },
+    {
+      "feature": 0,
+      "limite": 23.5,
+      "esq": 24,
+      "dir": 31
+    },
+    {
+      "feature": 1,
+      "limite": 13.0,
+      "esq": 25,
+      "dir": 28
+    },
+    {
+      "feature": 2,
+      "limite": 57.5,
+      "esq": 26,
+      "dir": 27
+    },
+    {
+      "classe": "seguro"
+    },
+    {
+      "classe": "risco_vencimento"
+    },
+    {
+      "feature": 1,
+      "limite": 14.5,
+      "esq": 29,
+      "dir": 30
+    },
+    {
+      "classe": "risco_vencimento"
+    },
+    {
+      "classe": "risco_vencimento"
+    },
+    {
+      "classe": "seguro"
+    },
+    {
+      "feature": 0,
+      "limite": 75.0,
+      "esq": 33,
+      "dir": 40
+    },
+    {
+      "feature": 1,
+      "limite": 72.5,
+      "esq": 34,
+      "dir": 37
+    },
+    {
+      "feature": 0,
+      "limite": 54.0,
+      "esq": 35,
+      "dir": 36
+    },
+    {
+      "classe": "risco_vencimento"
+    },
+    {
+      "classe": "seguro"
+    },
+    {
+      "feature": 0,
+      "limite": 36.5,
+      "esq": 38,
+      "dir": 39
+    },
+    {
+      "classe": "consumo_imediato"
+    },
+    {
+      "classe": "risco_vencimento"
+    },
+    {
+      "feature": 1,
+      "limite": 82.5,
+      "esq": 41,
+      "dir": 42
+    },
+    {
+      "classe": "seguro"
+    },
+    {
+      "feature": 0,
+      "limite": 148.0,
+      "esq": 43,
+      "dir": 44
+    },
+    {
+      "classe": "risco_vencimento"
+    },
+    {
+      "classe": "seguro"
+    }
+  ]
+}

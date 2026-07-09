@@ -17,7 +17,7 @@ import { RiskBadge } from '../../components/RiskBadge';
 import { Produto, Lote, NivelRisco } from '../../services/tipos';
 import { subscribeToProdutos } from '../../services/produtosService';
 import { subscribeAllLotes } from '../../services/lotesService';
-import { getRiscoProduto, diasParaVencer } from '../../services/risco';
+import { getRiscoProduto, diasParaVencer, aplicarRiscoMulti } from '../../services/risco';
 import { CategoriaItem, CATEGORIAS_PADRAO, subscribeCategorias } from '../../services/categoriasService';
 import { FadeDown } from '../../components/AnimEntrance';
 
@@ -25,7 +25,7 @@ type FiltroRisco = 'todos' | 'risco_alto' | 'atencao' | 'seguro';
 
 interface ProdutoEstoque {
   produto: Produto;
-  lotes: Lote[];
+  lotes: (Lote & { risco: NivelRisco })[];
   riscoGeral: NivelRisco;
   total: number;
   countRiscoAlto: number;
@@ -186,10 +186,13 @@ export default function EstoqueScreen() {
     return () => { u1(); u2(); u3(); clearTimeout(timer); };
   }, []);
 
+  // Risco recalculado ao vivo (média resolvida por produto), no lugar do campo congelado.
+  const lotesComRisco = useMemo(() => aplicarRiscoMulti(lotes, produtos), [lotes, produtos]);
+
   const itens = useMemo<ProdutoEstoque[]>(() => {
     return produtos
       .map((p) => {
-        const ls = lotes
+        const ls = lotesComRisco
           .filter((l) => l.produtoId === p.id)
           .sort((a, b) =>
             riscoOrdem(a.risco) - riscoOrdem(b.risco) ||
@@ -209,7 +212,7 @@ export default function EstoqueScreen() {
         };
       })
       .filter((i): i is ProdutoEstoque => i !== null);
-  }, [produtos, lotes]);
+  }, [produtos, lotesComRisco]);
 
   const itensFiltrados = useMemo(() => {
     return itens

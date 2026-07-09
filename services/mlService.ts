@@ -1,9 +1,9 @@
 import { NivelRisco } from './tipos';
 import { ML_API_URL } from './config';
 
-type MLClasse = 'consumo_imediato' | 'risco_vencimento' | 'seguro';
+export type MLClasse = 'consumo_imediato' | 'risco_vencimento' | 'seguro';
 
-const MAPA: Record<MLClasse, NivelRisco> = {
+export const MAPA: Record<MLClasse, NivelRisco> = {
   consumo_imediato: 'risco_alto',
   risco_vencimento: 'atencao',
   seguro: 'seguro',

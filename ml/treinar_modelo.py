@@ -23,6 +23,7 @@ Como usar:
 """
 
 import os
+import json
 import joblib
 import pandas as pd
 from sklearn.tree import DecisionTreeClassifier, export_text
@@ -38,6 +39,10 @@ from sklearn.metrics import (
 
 DATASET_PATH = os.path.join('data', 'dataset.csv')
 MODELO_PATH  = os.path.join('modelo', 'classificador.joblib')
+
+# Árvore serializada em JSON para o app avaliar localmente (sem chamar o Space).
+# Mesmos limiares aprendidos — apenas outro formato. Consumido por services/risco.ts.
+ARVORE_JSON_PATH = os.path.join('..', 'services', 'arvore_decisao.json')
 
 # Features usadas pelo modelo (devem ser as mesmas na API)
 FEATURES = ['dias_ate_vencer', 'media_consumo_dias', 'quantidade']
@@ -131,3 +136,40 @@ os.makedirs('modelo', exist_ok=True)
 joblib.dump(modelo, MODELO_PATH)
 print(f"\n✓ Modelo salvo em: ml/{MODELO_PATH}")
 print("  (este arquivo será enviado para o Hugging Face Space na próxima etapa)")
+
+
+# ── 6. Exportar a árvore em JSON para avaliação no cliente ───────────────────
+
+# Serializa a estrutura aprendida (modelo.tree_) num formato leve que o app
+# percorre localmente — mesmos limiares, sem chamar a API. Cada nó é:
+#   interno : {"feature": <idx>, "limite": <float>, "esq": <idx>, "dir": <idx>}
+#   folha   : {"classe": <nome>}
+# Regra de decisão (igual ao scikit-learn): se X[feature] <= limite vai p/ "esq",
+# senão p/ "dir". As classes ficam nos nomes originais do modelo; o mapeamento
+# para NivelRisco continua em services/mlService.ts.
+arvore = modelo.tree_
+nos = []
+for i in range(arvore.node_count):
+    if arvore.children_left[i] == -1:  # -1 = folha (sem filhos)
+        classe_idx = int(arvore.value[i][0].argmax())
+        nos.append({"classe": modelo.classes_[classe_idx]})
+    else:
+        nos.append({
+            "feature": int(arvore.feature[i]),
+            "limite":  round(float(arvore.threshold[i]), 4),
+            "esq":     int(arvore.children_left[i]),
+            "dir":     int(arvore.children_right[i]),
+        })
+
+arvore_json = {
+    "features": FEATURES,
+    "classes":  list(modelo.classes_),
+    "nos":      nos,
+}
+
+os.makedirs(os.path.dirname(ARVORE_JSON_PATH), exist_ok=True)
+with open(ARVORE_JSON_PATH, 'w', encoding='utf-8') as f:
+    json.dump(arvore_json, f, ensure_ascii=False, indent=2)
+
+print(f"\n✓ Árvore exportada em JSON: {os.path.normpath(ARVORE_JSON_PATH)}")
+print(f"  ({len(nos)} nós — avaliada localmente pelo app, sem chamar o Space)")

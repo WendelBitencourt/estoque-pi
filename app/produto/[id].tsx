@@ -11,13 +11,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '../../theme';
 import { RiskBadge } from '../../components/RiskBadge';
-import { Produto, Lote } from '../../services/tipos';
+import { Produto, Lote, NivelRisco } from '../../services/tipos';
 import { getProdutoById, toggleOcultarNecessidades } from '../../services/produtosService';
 import { subscribeLotesByProduto } from '../../services/lotesService';
-import { getRiscoProduto, diasParaVencer } from '../../services/risco';
+import { getRiscoProduto, diasParaVencer, aplicarRisco } from '../../services/risco';
 import { getSaidasProduto } from '../../services/movimentacoesService';
 import { preverFimEstoque, PrevisaoEstoque } from '../../services/mlService';
 
@@ -139,27 +139,16 @@ function PrevisaoBanner({ produtoId, estoqueTotal }: { produtoId: string; estoqu
   );
 }
 
-function LoteCard({ lote, mediaConsumoDias }: { lote: Lote; mediaConsumoDias: number }) {
+function LoteCard({ lote, mediaConsumoDias }: { lote: Lote & { risco: NivelRisco }; mediaConsumoDias: number }) {
   const { colors } = useTheme();
   const dias = diasParaVencer(lote.validade);
 
-  const bordaEsquerda =
-    lote.risco === 'risco_alto' ? colors.riscoAlto
-    : lote.risco === 'atencao' ? colors.riscoAtencao
-    : lote.risco === 'seguro' ? colors.riscoSeguro
-    : colors.border; // null (pendente offline)
-
-  const corML =
-    lote.risco === 'risco_alto' ? colors.riscoAltoDark
-    : lote.risco === 'atencao' ? colors.riscoAtencaoDark
-    : lote.risco === 'seguro' ? colors.riscoSeguroDark
-    : colors.textDisabled; // null
-
-  const bgML =
-    lote.risco === 'risco_alto' ? colors.riscoAltoLight
-    : lote.risco === 'atencao' ? colors.riscoAtencaoLight
-    : lote.risco === 'seguro' ? colors.riscoSeguroLight
-    : colors.surfaceSecondary; // null
+  // Risco sempre presente (classificado ao vivo em aplicarRisco) → lookup direto.
+  const { bordaEsquerda, corML, bgML } = {
+    risco_alto: { bordaEsquerda: colors.riscoAlto,    corML: colors.riscoAltoDark,    bgML: colors.riscoAltoLight },
+    atencao:    { bordaEsquerda: colors.riscoAtencao, corML: colors.riscoAtencaoDark, bgML: colors.riscoAtencaoLight },
+    seguro:     { bordaEsquerda: colors.riscoSeguro,  corML: colors.riscoSeguroDark,  bgML: colors.riscoSeguroLight },
+  }[lote.risco];
 
   return (
     <View style={[styles.loteCard, { backgroundColor: colors.surface, borderColor: colors.border, borderLeftColor: bordaEsquerda }]}>
@@ -189,9 +178,7 @@ function LoteCard({ lote, mediaConsumoDias }: { lote: Lote; mediaConsumoDias: nu
       {/* Explicação da classificação pelo ML */}
       <View style={[styles.mlRow, { backgroundColor: bgML }]}>
         <Text style={[styles.mlTexto, { color: corML }]}>
-          {lote.risco === null
-            ? '🧠 Calculando risco — aguardando conexão com a internet…'
-            : `🧠 ${dias <= 0 ? 'Vencido' : `${dias}d restantes`} · consumo médio ${mediaConsumoDias}d → ${CLASSE_LABEL[lote.risco]}`}
+          {`🧠 ${dias <= 0 ? 'Vencido' : `${dias}d restantes`} · consumo médio ${mediaConsumoDias}d → ${CLASSE_LABEL[lote.risco]}`}
         </Text>
       </View>
     </View>
@@ -219,6 +206,14 @@ export default function ProdutoDetalheScreen() {
     return unsub;
   }, [id]);
 
+  // Risco recalculado ao vivo (dias/qtd atuais + média do produto), substituindo
+  // o campo congelado do Firestore. useMemo aqui — antes dos early returns —
+  // para não quebrar a ordem dos hooks.
+  const lotesComRisco = useMemo(
+    () => aplicarRisco(lotes, produto?.mediaConsumoDias ?? 0),
+    [lotes, produto?.mediaConsumoDias]
+  );
+
   if (produto === undefined) {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
@@ -245,8 +240,8 @@ export default function ProdutoDetalheScreen() {
     );
   }
 
-  const total = lotes.reduce((s, l) => s + l.quantidade, 0);
-  const risco = lotes.length > 0 ? getRiscoProduto(lotes) : 'seguro';
+  const total = lotesComRisco.reduce((s, l) => s + l.quantidade, 0);
+  const risco = lotesComRisco.length > 0 ? getRiscoProduto(lotesComRisco) : 'seguro';
 
   async function handleToggleOcultar() {
     const novoValor = !ocultado;
@@ -291,9 +286,9 @@ export default function ProdutoDetalheScreen() {
               <Text style={[styles.resumoLabel, { color: colors.primaryDark }]}>em estoque</Text>
             </View>
             <View style={[styles.resumoCard, { backgroundColor: colors.surfaceSecondary }]}>
-              <Text style={[styles.resumoValor, { color: colors.textPrimary }]}>{lotes.length}</Text>
+              <Text style={[styles.resumoValor, { color: colors.textPrimary }]}>{lotesComRisco.length}</Text>
               <Text style={[styles.resumoLabel, { color: colors.textSecondary }]}>
-                {lotes.length === 1 ? 'lote ativo' : 'lotes ativos'}
+                {lotesComRisco.length === 1 ? 'lote ativo' : 'lotes ativos'}
               </Text>
             </View>
           </View>
@@ -307,14 +302,14 @@ export default function ProdutoDetalheScreen() {
             <Text style={[styles.secaoAviso, { color: colors.textDisabled }]}>do mais antigo ao mais novo</Text>
           </View>
 
-          {lotes.length === 0 ? (
+          {lotesComRisco.length === 0 ? (
             <View style={[styles.vazioCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Text style={styles.vazioEmoji}>📭</Text>
               <Text style={[styles.vazioTexto, { color: colors.textSecondary }]}>Nenhum lote cadastrado.</Text>
             </View>
           ) : (
             <View style={styles.lotesList}>
-              {lotes.map((lote) => <LoteCard key={lote.id} lote={lote} mediaConsumoDias={produto.mediaConsumoDias} />)}
+              {lotesComRisco.map((lote) => <LoteCard key={lote.id} lote={lote} mediaConsumoDias={produto.mediaConsumoDias} />)}
             </View>
           )}
 

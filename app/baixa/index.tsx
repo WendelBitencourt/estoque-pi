@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTheme } from '../../theme';
 import { StepIndicator } from '../../components/StepIndicator';
 import { RiskBadge } from '../../components/RiskBadge';
@@ -23,7 +23,7 @@ import { subscribeToProdutos, getProdutoById } from '../../services/produtosServ
 import { atualizarMediaConsumo, toggleOcultarNecessidades } from '../../services/produtosService';
 import { subscribeLotesByProduto, ajustarQuantidadeLote, getQuantidadeTotalProduto } from '../../services/lotesService';
 import { criarMovimentacao, recalcularMediaConsumo } from '../../services/movimentacoesService';
-import { diasParaVencer } from '../../services/risco';
+import { diasParaVencer, aplicarRisco } from '../../services/risco';
 import { notificarEstoqueZerado } from '../../services/notificacoesService';
 import { EstoqueZeradoModal } from '../../components/EstoqueZeradoModal';
 
@@ -183,6 +183,12 @@ function Passo2({
     return unsub;
   }, [produto.id]);
 
+  // Risco ao vivo (média do produto selecionado) no lugar do campo congelado.
+  const lotesComRisco = useMemo(
+    () => aplicarRisco(lotes, produto.mediaConsumoDias),
+    [lotes, produto.mediaConsumoDias]
+  );
+
   const qtd = Number(quantidade);
   const maxQtd = loteSelecionado?.quantidade ?? 0;
   const qtdValida = qtd > 0 && qtd <= maxQtd;
@@ -254,7 +260,7 @@ function Passo2({
             <Text style={[styles.lotesDica, { color: colors.textDisabled }]}>do mais antigo ao mais novo</Text>
           </View>
 
-          {lotes.length === 0 ? (
+          {lotesComRisco.length === 0 ? (
             <View style={[styles.semLote, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Text style={styles.semLoteEmoji}>📭</Text>
               <Text style={[styles.semLoteTexto, { color: colors.textSecondary }]}>
@@ -263,7 +269,7 @@ function Passo2({
             </View>
           ) : (
             <View style={styles.lotesLista}>
-              {lotes.map((lote) => {
+              {lotesComRisco.map((lote) => {
                 const ativo = loteSelecionado?.id === lote.id;
                 const dias = diasParaVencer(lote.validade);
                 return (
